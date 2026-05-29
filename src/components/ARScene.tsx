@@ -126,6 +126,9 @@ export default function ARScene() {
         if (!started || !containerRef.current) return;
 
         let mindarThree: any;
+        let rendererRef: THREE.WebGLRenderer | null = null;
+        let streamRef: MediaStream | null = null;
+        const containerEl = containerRef.current;
 
         const start = async () => {
             const { MindARThree } = await import(
@@ -142,6 +145,7 @@ export default function ARScene() {
             });
 
             const { renderer, scene, camera } = mindarThree;
+            rendererRef = renderer;
 
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2);
             scene.add(hemiLight);
@@ -234,6 +238,14 @@ export default function ARScene() {
 
             await mindarThree.start();
 
+            // Capture the camera stream for cleanup
+            try {
+                const video = mindarThree.video;
+                if (video && video.srcObject) {
+                    streamRef = video.srcObject as MediaStream;
+                }
+            } catch (_) {}
+
             // ── Enhanced Autofocus & Resolution ──
             try {
                 const video = mindarThree.video;
@@ -272,9 +284,43 @@ export default function ARScene() {
         start();
 
         return () => {
-            if (mindarThree) {
-                mindarThree.stop();
+            // Stop the animation loop first
+            if (rendererRef) {
+                rendererRef.setAnimationLoop(null);
             }
+
+            // Stop MindAR tracking
+            if (mindarThree) {
+                try { mindarThree.stop(); } catch (_) {}
+            }
+
+            // Stop all camera media tracks
+            if (streamRef) {
+                streamRef.getTracks().forEach(track => track.stop());
+            }
+
+            // Dispose Three.js renderer
+            if (rendererRef) {
+                rendererRef.dispose();
+            }
+
+            // Remove any leftover video/canvas elements MindAR injected
+            if (containerEl) {
+                const leftoverVideos = containerEl.querySelectorAll("video");
+                leftoverVideos.forEach(v => {
+                    if (v.srcObject) {
+                        (v.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+                        v.srcObject = null;
+                    }
+                    v.remove();
+                });
+                const leftoverCanvases = containerEl.querySelectorAll("canvas");
+                leftoverCanvases.forEach(c => c.remove());
+            }
+
+            // Reset tracking state
+            setIsTargetVisible(false);
+            setHasBeenDetected(false);
         };
     }, [started]);
 
