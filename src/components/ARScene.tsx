@@ -205,63 +205,75 @@ export default function ARScene() {
             };
 
             // Load the GLB model
+            let model: THREE.Group | null = null;
+            const subLanterns: THREE.Object3D[] = [];
             const loader = new GLTFLoader();
+            
+            console.log("AR: Starting model load...");
             loader.load(
                 "/models/VLSSL.glb",
                 (gltf: any) => {
-                    const model = gltf.scene;
+                    model = gltf.scene;
+                    console.log("AR: Model loaded successfully");
 
                     // Make the model 3x bigger (original was 0.4, 0.4 * 3 = 1.2)
-                    model.scale.set(1.2, 1.2, 1.2);
+                    model!.scale.set(1.2, 1.2, 1.2);
 
                     // Auto-align model's base flush with the QR ground plane (Y = 0)
-                    const box = new THREE.Box3().setFromObject(model);
+                    const box = new THREE.Box3().setFromObject(model!);
                     const center = new THREE.Vector3();
                     box.getCenter(center);
 
-                    model.position.x = -center.x;
-                    model.position.z = -center.z;
-                    model.position.y = -box.min.y;
+                    model!.position.x = -center.x;
+                    model!.position.z = -center.z;
+                    model!.position.y = -box.min.y;
 
-                    modelContainer.add(model);
+                    modelContainer.add(model!);
 
                     // Find sub-lanterns inside model
-                    const subLanterns: THREE.Object3D[] = [];
-                    model.traverse((obj: THREE.Object3D) => {
+                    model!.traverse((obj: THREE.Object3D) => {
                         const name = obj.name.toLowerCase();
                         if (name.startsWith("sublantern")) {
                             subLanterns.push(obj);
                         }
                     });
-
-                    // Start render loop
-                    renderer.setAnimationLoop(() => {
-                        // Smooth spin whole lantern around vertical axis
-                        model.rotation.y += 0.005;
-
-                        // Rotate sub lanterns in alternating directions
-                        subLanterns.forEach((lantern: THREE.Object3D, index: number) => {
-                            lantern.rotation.y += index % 2 === 0 ? 0.02 : -0.02;
-                        });
-
-                        // Beautiful color light pulsing transition
-                        lerpT += 0.008;
-                        if (lerpT >= 1) {
-                            lerpT = 0;
-                            colorIndex = nextColorIndex;
-                            nextColorIndex = (nextColorIndex + 1) % festiveColors.length;
-                        }
-
-                        pointLight.color.lerpColors(
-                            festiveColors[colorIndex],
-                            festiveColors[nextColorIndex],
-                            lerpT
-                        );
-
-                        renderer.render(scene, camera);
-                    });
+                },
+                (xhr) => {
+                    console.log(`AR: Model loading ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                },
+                (error) => {
+                    console.error("AR: Model load failed", error);
                 }
             );
+
+            // Start render loop immediately
+            renderer.setAnimationLoop(() => {
+                if (model) {
+                    // Smooth spin whole lantern around vertical axis
+                    model.rotation.y += 0.005;
+
+                    // Rotate sub lanterns in alternating directions
+                    subLanterns.forEach((lantern: THREE.Object3D, index: number) => {
+                        lantern.rotation.y += index % 2 === 0 ? 0.02 : -0.02;
+                    });
+                }
+
+                // Beautiful color light pulsing transition
+                lerpT += 0.008;
+                if (lerpT >= 1) {
+                    lerpT = 0;
+                    colorIndex = nextColorIndex;
+                    nextColorIndex = (nextColorIndex + 1) % festiveColors.length;
+                }
+
+                pointLight.color.lerpColors(
+                    festiveColors[colorIndex],
+                    festiveColors[nextColorIndex],
+                    lerpT
+                );
+
+                renderer.render(scene, camera);
+            });
 
             await mindarThree.start();
 
