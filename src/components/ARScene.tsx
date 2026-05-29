@@ -628,7 +628,7 @@ export default function ARScene() {
                     position: fixed;
                     top: 0;
                     left: 0;
-                    background: radial-gradient(circle at center, #1b0f32 0%, #060211 100%);
+                    background: linear-gradient(rgba(10, 5, 20, 0.82), rgba(10, 5, 20, 0.94)), url('/images/buddha.png') no-repeat center center / cover;
                     color: #ffffff;
                     font-family: 'Outfit', 'Noto Sans Sinhala', sans-serif;
                     display: flex;
@@ -697,41 +697,7 @@ export default function ARScene() {
                     to { transform: translateY(0); opacity: 1; }
                 }
 
-                .vesak-buddha-img-container {
-                    width: 130px;
-                    height: 130px;
-                    margin: 0 auto 22px auto;
-                    border-radius: 50%;
-                    background: radial-gradient(circle, rgba(254, 204, 40, 0.15) 0%, rgba(212, 175, 55, 0.02) 100%);
-                    border: 2px solid rgba(212, 175, 55, 0.55);
-                    box-shadow: 0 0 25px rgba(212, 175, 55, 0.4), 0 0 12px rgba(212, 175, 55, 0.15) inset;
-                    overflow: hidden;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    animation: pulseGlow 3s infinite ease-in-out;
-                    transition: all 0.5s ease;
-                }
 
-                .vesak-buddha-img {
-                    width: 90%;
-                    height: 90%;
-                    object-fit: contain;
-                    filter: drop-shadow(0 0 8px rgba(254, 204, 40, 0.3));
-                }
-
-                @keyframes pulseGlow {
-                    0%, 100% {
-                        transform: scale(1);
-                        box-shadow: 0 0 25px rgba(212, 175, 55, 0.4), 0 0 12px rgba(212, 175, 55, 0.15) inset;
-                        border-color: rgba(212, 175, 55, 0.55);
-                    }
-                    50% {
-                        transform: scale(1.04);
-                        box-shadow: 0 0 40px rgba(212, 175, 55, 0.75), 0 0 20px rgba(212, 175, 55, 0.35) inset;
-                        border-color: rgba(212, 175, 55, 0.9);
-                    }
-                }
 
                 .vesak-title {
                     font-family: 'Cinzel', serif;
@@ -919,9 +885,6 @@ export default function ARScene() {
 
             {/* Glassmorphic card welcome view */}
             <div className="vesak-card">
-                <div className="vesak-buddha-img-container">
-                    <img src="/images/buddha.png" alt="Buddha" className="vesak-buddha-img" />
-                </div>
                 <h1 className="vesak-title">AR වෙසක් පහන් කූඩුව</h1>
                 <p className="vesak-subtitle">
                     පූජනීය බුදු රශ්මි මාලාවෙන් ඔබගේ පරිසරය ඒකාලෝක කරන්න. ඔබ ආදරය කරන අය වෙනුවෙන් උතුම් වෙසක් ආශිර්වාදයක් එක් කරන්න.
