@@ -34,21 +34,17 @@ export default function ARScene() {
     const [isTargetVisible, setIsTargetVisible] = useState(false);
     const [hasBeenDetected, setHasBeenDetected] = useState(false);
 
-
-
-    // Generate random spark coordinates on mount
     useEffect(() => {
         const generatedSparks = Array.from({ length: 22 }).map((_, i) => ({
             id: i,
             left: `${Math.random() * 100}%`,
             delay: `${Math.random() * 7}s`,
             duration: `${6 + Math.random() * 6}s`,
-            size: `${4 + Math.random() * 6}px`,
+            size: `${3 + Math.random() * 5}px`,
         }));
         setSparks(generatedSparks);
     }, []);
 
-    // Fullscreen back-button and exit gesture synchronization
     useEffect(() => {
         const handleFullscreenChange = () => {
             const isFullscreen = !!(
@@ -58,7 +54,6 @@ export default function ARScene() {
                 (document as any).msFullscreenElement
             );
             if (!isFullscreen && started) {
-                // Return to welcome screen if user manually exits fullscreen
                 setStarted(false);
             }
         };
@@ -76,14 +71,13 @@ export default function ARScene() {
         };
     }, [started]);
 
-    // Handle AR Start + Request Fullscreen to hide URL bar
     const handleStart = async () => {
         try {
             const docEl = document.documentElement;
             if (docEl.requestFullscreen) {
                 await docEl.requestFullscreen();
             } else if ((docEl as any).webkitRequestFullscreen) {
-                await (docEl as any).webkitRequestFullscreen(); // iOS / Safari
+                await (docEl as any).webkitRequestFullscreen();
             } else if ((docEl as any).mozRequestFullScreen) {
                 await (docEl as any).mozRequestFullScreen();
             } else if ((docEl as any).msRequestFullscreen) {
@@ -93,7 +87,6 @@ export default function ARScene() {
             console.warn("Fullscreen request skipped or blocked by browser:", err);
         }
 
-        // Initialize and preload audio upon user interaction
         if (!audioRef.current) {
             audioRef.current = new Audio("/audio/vesakSong.mp3");
             audioRef.current.loop = true;
@@ -103,7 +96,6 @@ export default function ARScene() {
         setStarted(true);
     };
 
-    // Handle AR Exit + Restore browser UI
     const handleExit = async () => {
         try {
             if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
@@ -121,7 +113,6 @@ export default function ARScene() {
             console.warn("Exit fullscreen failed:", err);
         }
 
-        // Stop audio when exiting AR
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current.currentTime = 0;
@@ -130,19 +121,16 @@ export default function ARScene() {
         setStarted(false);
     };
 
-    // MindAR and Three.js AR Scene setup
     useEffect(() => {
         if (!started || !containerRef.current) return;
 
         let mindarThree: any;
 
         const start = async () => {
-            // Dynamic Browser-only import
             const { MindARThree } = await import(
                 "mind-ar/dist/mindar-image-three.prod.js"
             );
 
-            // MindAR Setup with optimized stability parameters
             mindarThree = new MindARThree({
                 container: containerRef.current,
                 imageTargetSrc: "/targets/vesak.mind",
@@ -154,21 +142,18 @@ export default function ARScene() {
 
             const { renderer, scene, camera } = mindarThree;
 
-            // Ambient/Hemisphere Light
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2);
             scene.add(hemiLight);
 
-            // Point Light for glowing effect
             const pointLight = new THREE.PointLight(0xffffff, 2.5, 12);
             pointLight.position.set(0, 1.5, 0);
             scene.add(pointLight);
 
-            // Color loop variables
             const festiveColors = [
-                new THREE.Color("#ff3333"), // Sacred red
-                new THREE.Color("#ffaa00"), // Warm golden orange
-                new THREE.Color("#00ff66"), // Vibrant green
-                new THREE.Color("#3366ff"), // Buddhist blue
+                new THREE.Color("#ff3333"),
+                new THREE.Color("#ffaa00"),
+                new THREE.Color("#00ff66"),
+                new THREE.Color("#3366ff"),
             ];
 
             let colorIndex = 0;
@@ -177,18 +162,13 @@ export default function ARScene() {
 
             const anchor = mindarThree.addAnchor(0);
 
-            // Create an upright container group to map target flat plane (X-Y) to vertical 3D space
             const modelContainer = new THREE.Group();
             modelContainer.rotation.x = Math.PI / 2;
             anchor.group.add(modelContainer);
 
-            // Target detection handlers for UI status indicators
             anchor.onTargetFound = () => {
                 setIsTargetVisible(true);
                 setHasBeenDetected(true);
-                console.log("Target found — model placed and tracked");
-
-                // Play audio when lantern appears
                 if (audioRef.current) {
                     audioRef.current.play().catch(e => console.warn("Audio playback failed:", e));
                 }
@@ -196,25 +176,18 @@ export default function ARScene() {
 
             anchor.onTargetLost = () => {
                 setIsTargetVisible(false);
-                console.log("Target tracking lost");
-
-                // Pause audio when lantern disappears
                 if (audioRef.current) {
                     audioRef.current.pause();
                 }
             };
 
-            // Load the GLB model
             const loader = new GLTFLoader();
             loader.load(
                 "/models/VLSSL.glb",
                 (gltf: any) => {
                     const model = gltf.scene;
-
-                    // Scale down the model (was 1.2, now 0.6)
                     model.scale.set(0.6, 0.6, 0.6);
 
-                    // Auto-align model's base flush with the QR ground plane (Y = 0)
                     const box = new THREE.Box3().setFromObject(model);
                     const center = new THREE.Vector3();
                     box.getCenter(center);
@@ -225,7 +198,6 @@ export default function ARScene() {
 
                     modelContainer.add(model);
 
-                    // Find sub-lanterns inside model
                     const subLanterns: THREE.Object3D[] = [];
                     model.traverse((obj: THREE.Object3D) => {
                         const name = obj.name.toLowerCase();
@@ -234,17 +206,13 @@ export default function ARScene() {
                         }
                     });
 
-                    // Start render loop
                     renderer.setAnimationLoop(() => {
-                        // Smooth spin whole lantern around vertical axis
                         model.rotation.y += 0.005;
 
-                        // Rotate sub lanterns in alternating directions
                         subLanterns.forEach((lantern: THREE.Object3D, index: number) => {
                             lantern.rotation.y += index % 2 === 0 ? 0.02 : -0.02;
                         });
 
-                        // Beautiful color light pulsing transition
                         lerpT += 0.008;
                         if (lerpT >= 1) {
                             lerpT = 0;
@@ -265,18 +233,15 @@ export default function ARScene() {
 
             await mindarThree.start();
 
-            // Attempt to enable continuous autofocus for better QR tracking
             try {
                 const video = mindarThree.video;
                 if (video && video.srcObject) {
                     const stream = video.srcObject as MediaStream;
                     const track = stream.getVideoTracks()[0];
                     if (track && track.applyConstraints) {
-                        // Using 'advanced' constraints so the browser can ignore them if unsupported
                         await track.applyConstraints({
                             advanced: [{ focusMode: "continuous" }]
                         } as any);
-                        console.log("AR Camera: Continuous autofocus enabled");
                     }
                 }
             } catch (err) {
@@ -293,14 +258,12 @@ export default function ARScene() {
         };
     }, [started]);
 
-    // ----------------------------------------------------
-    // AR VIEW SCREEN
-    // ----------------------------------------------------
+    // ─── AR VIEW ────────────────────────────────────────────────────────────────
     if (started) {
         return (
             <div
                 ref={containerRef}
-                className="ar-container"
+                className="ar-root"
                 style={{
                     width: "100vw",
                     height: "100vh",
@@ -308,97 +271,106 @@ export default function ARScene() {
                     top: 0,
                     left: 0,
                     zIndex: 9999,
-                    backgroundColor: "#000000",
+                    backgroundColor: "#000",
                 }}
             >
                 <style>{`
-                    .ar-container video,
-                    .ar-container canvas {
+                    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+                    :root {
+                        --gold: #C9A84C;
+                        --gold-light: #E8C96A;
+                        --gold-muted: rgba(201,168,76,0.18);
+                        --surface: rgba(10, 9, 14, 0.72);
+                        --border: rgba(201,168,76,0.22);
+                        --text-primary: #F0EBE1;
+                        --text-secondary: rgba(240,235,225,0.55);
+                    }
+
+                    .ar-root video,
+                    .ar-root canvas {
                         max-width: none !important;
                         max-height: none !important;
                     }
 
-                    /* Back Button Styling */
-                    .ar-btn-back {
+                    /* ── Back Button ── */
+                    .ar-back-btn {
                         position: absolute;
-                        top: 20px;
+                        top: 22px;
                         left: 20px;
                         z-index: 10000;
-                        padding: 12px 20px;
-                        font-family: 'Outfit', sans-serif;
-                        font-size: 14px;
-                        font-weight: 600;
-                        color: #ffffff;
-                        background: rgba(10, 5, 20, 0.6);
-                        backdrop-filter: blur(8px);
-                        border: 1px solid rgba(212, 175, 55, 0.3);
-                        border-radius: 30px;
+                        display: flex;
+                        align-items: center;
+                        gap: 7px;
+                        padding: 10px 18px;
+                        font-family: 'DM Sans', sans-serif;
+                        font-size: 13px;
+                        font-weight: 500;
+                        color: var(--text-primary);
+                        background: var(--surface);
+                        backdrop-filter: blur(18px);
+                        -webkit-backdrop-filter: blur(18px);
+                        border: 1px solid var(--border);
+                        border-radius: 100px;
                         cursor: pointer;
+                        letter-spacing: 0.3px;
+                        transition: background 0.25s, border-color 0.25s;
+                    }
+                    .ar-back-btn:hover {
+                        background: rgba(201,168,76,0.14);
+                        border-color: var(--gold);
+                    }
+                    .ar-back-arrow {
+                        font-size: 15px;
+                        line-height: 1;
+                        opacity: 0.7;
+                    }
+
+                    /* ── Status Pill ── */
+                    .ar-status-pill {
+                        position: absolute;
+                        top: 22px;
+                        right: 20px;
+                        z-index: 10000;
                         display: flex;
                         align-items: center;
                         gap: 8px;
-                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+                        padding: 9px 16px;
+                        font-family: 'DM Sans', sans-serif;
+                        font-size: 12px;
+                        font-weight: 500;
+                        letter-spacing: 0.6px;
+                        text-transform: uppercase;
+                        color: var(--text-primary);
+                        background: var(--surface);
+                        backdrop-filter: blur(18px);
+                        -webkit-backdrop-filter: blur(18px);
+                        border: 1px solid var(--border);
+                        border-radius: 100px;
+                    }
+                    .ar-status-led {
+                        width: 7px;
+                        height: 7px;
+                        border-radius: 50%;
+                        flex-shrink: 0;
+                    }
+                    .ar-status-led.tracked {
+                        background: #4ade80;
+                        box-shadow: 0 0 8px #4ade80;
+                        animation: ledPulse 1.8s ease-in-out infinite;
+                    }
+                    .ar-status-led.searching {
+                        background: var(--gold);
+                        box-shadow: 0 0 8px var(--gold);
+                        animation: ledPulse 1.2s ease-in-out infinite;
+                    }
+                    @keyframes ledPulse {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.4; }
                     }
 
-                    .ar-btn-back:hover {
-                        background: rgba(212, 175, 55, 0.2);
-                        border-color: #d4af37;
-                        transform: translateY(-2px);
-                    }
-
-                    /* Floating Wishing Overlay Card */
-                    .ar-wishing-overlay {
-                        position: absolute;
-                        bottom: 30px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        z-index: 10000;
-                        width: 90%;
-                        max-width: 420px;
-                        background: rgba(10, 5, 20, 0.7);
-                        backdrop-filter: blur(16px);
-                        -webkit-backdrop-filter: blur(16px);
-                        border: 1px solid rgba(212, 175, 55, 0.35);
-                        border-radius: 20px;
-                        padding: 16px 20px;
-                        display: flex;
-                        gap: 15px;
-                        align-items: center;
-                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-                        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-                        font-family: 'Outfit', sans-serif;
-                    }
-
-                    .ar-overlay-icon {
-                        font-size: 28px;
-                        filter: drop-shadow(0 2px 8px rgba(212,175,55,0.6));
-                        animation: floatIcon 3s ease-in-out infinite;
-                    }
-
-                    .ar-overlay-content {
-                        flex: 1;
-                    }
-
-                    .ar-overlay-title {
-                        font-size: 16px;
-                        font-weight: 700;
-                        color: #f3e5ab;
-                        margin: 0 0 4px 0;
-                        letter-spacing: 0.5px;
-                    }
-
-                    .ar-overlay-text {
-                        font-size: 13px;
-                        color: #e0e0e0;
-                        margin: 0;
-                        line-height: 1.4;
-                        font-style: italic;
-                        font-weight: 300;
-                    }
-
-                    /* Scanning Reticle */
-                    .ar-scanning-reticle {
+                    /* ── Scanning Reticle ── */
+                    .ar-reticle-wrap {
                         position: absolute;
                         top: 45%;
                         left: 50%;
@@ -407,230 +379,230 @@ export default function ARScene() {
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        gap: 20px;
+                        gap: 22px;
                         pointer-events: none;
                     }
-
-                    .ar-reticle-box {
-                        width: 240px;
-                        height: 240px;
+                    .ar-reticle-frame {
+                        width: 230px;
+                        height: 230px;
                         position: relative;
-                        border: 1px dashed rgba(212, 175, 55, 0.4);
-                        border-radius: 20px;
-                        animation: pulseBox 2s infinite ease-in-out;
+                        animation: frameBreath 2.4s ease-in-out infinite;
                     }
-
-                    .ar-reticle-box .corner {
+                    .ar-reticle-frame .c {
                         position: absolute;
-                        width: 25px;
-                        height: 25px;
-                        border: 4px solid #d4af37;
+                        width: 22px;
+                        height: 22px;
+                        border-color: var(--gold-light);
+                        border-style: solid;
+                        border-width: 0;
                     }
-
-                    .ar-reticle-box .top-left {
-                        top: -2px;
-                        left: -2px;
-                        border-right: none;
-                        border-bottom: none;
-                        border-top-left-radius: 12px;
-                    }
-
-                    .ar-reticle-box .top-right {
-                        top: -2px;
-                        right: -2px;
-                        border-left: none;
-                        border-bottom: none;
-                        border-top-right-radius: 12px;
-                    }
-
-                    .ar-reticle-box .bottom-left {
-                        bottom: -2px;
-                        left: -2px;
-                        border-right: none;
-                        border-top: none;
-                        border-bottom-left-radius: 12px;
-                    }
-
-                    .ar-reticle-box .bottom-right {
-                        bottom: -2px;
-                        right: -2px;
-                        border-left: none;
-                        border-top: none;
-                        border-bottom-right-radius: 12px;
-                    }
-
-                    .ar-scanning-text {
-                        font-family: 'Outfit', sans-serif;
-                        font-size: 14px;
-                        font-weight: 500;
-                        color: #ffffff;
-                        background: rgba(10, 5, 20, 0.75);
-                        backdrop-filter: blur(8px);
-                        padding: 10px 20px;
-                        border-radius: 20px;
-                        border: 1px solid rgba(212, 175, 55, 0.25);
-                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-                        animation: pulseText 1.5s infinite alternate;
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                    }
-
-                    @keyframes pulseBox {
-                        0%, 100% { transform: scale(1); opacity: 0.8; }
-                        50% { transform: scale(1.03); opacity: 1; box-shadow: 0 0 20px rgba(212, 175, 55, 0.2); }
-                    }
-
-                    @keyframes pulseText {
-                        from { opacity: 0.8; }
-                        to { opacity: 1; }
-                    }
-
-                    /* Status HUD Card */
-                    .ar-hud-status {
+                    .ar-reticle-frame .c.tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; border-radius: 4px 0 0 0; }
+                    .ar-reticle-frame .c.tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; border-radius: 0 4px 0 0; }
+                    .ar-reticle-frame .c.bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; border-radius: 0 0 0 4px; }
+                    .ar-reticle-frame .c.br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; border-radius: 0 0 4px 0; }
+                    .ar-reticle-inner-ring {
                         position: absolute;
-                        top: 20px;
-                        right: 20px;
-                        z-index: 10000;
-                        background: rgba(10, 5, 20, 0.7);
-                        backdrop-filter: blur(12px);
-                        -webkit-backdrop-filter: blur(12px);
-                        border: 1px solid rgba(212, 175, 55, 0.3);
-                        border-radius: 30px;
-                        padding: 10px 18px;
-                        font-family: 'Outfit', sans-serif;
-                        font-size: 13px;
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-                        border-bottom: 2px solid rgba(212, 175, 55, 0.2);
+                        inset: 20px;
+                        border: 1px solid rgba(201,168,76,0.15);
+                        border-radius: 8px;
+                    }
+                    @keyframes frameBreath {
+                        0%, 100% { opacity: 0.7; transform: scale(1); }
+                        50% { opacity: 1; transform: scale(1.025); }
+                    }
+                    .ar-reticle-label {
+                        font-family: 'DM Sans', sans-serif;
+                        font-size: 12px;
+                        font-weight: 400;
+                        letter-spacing: 0.8px;
+                        text-transform: uppercase;
+                        color: var(--text-primary);
+                        background: var(--surface);
+                        backdrop-filter: blur(14px);
+                        -webkit-backdrop-filter: blur(14px);
+                        border: 1px solid var(--border);
+                        border-radius: 100px;
+                        padding: 9px 20px;
                     }
 
-                    .ar-status-dot {
-                        width: 8px;
-                        height: 8px;
-                        border-radius: 50%;
-                    }
-
-                    .ar-status-dot.active {
-                        background: #00ff66;
-                        box-shadow: 0 0 10px #00ff66;
-                    }
-
-                    .ar-status-dot.explore {
-                        background: #ffaa00;
-                        box-shadow: 0 0 10px #ffaa00;
-                    }
-
-                    .ar-status-text {
-                        font-weight: 600;
-                        color: #ffffff;
-                        letter-spacing: 0.5px;
-                    }
-
-                    /* Explore Banner */
-                    .ar-explore-banner {
+                    /* ── Restore Banner ── */
+                    .ar-restore-banner {
                         position: absolute;
-                        bottom: 120px;
+                        bottom: 130px;
                         left: 50%;
                         transform: translateX(-50%);
                         z-index: 10000;
-                        width: 85%;
-                        max-width: 360px;
-                        background: rgba(255, 170, 0, 0.12);
-                        backdrop-filter: blur(8px);
-                        border: 1px solid rgba(255, 170, 0, 0.4);
+                        width: max-content;
+                        max-width: 88%;
+                        background: rgba(201,168,76,0.09);
+                        backdrop-filter: blur(12px);
+                        -webkit-backdrop-filter: blur(12px);
+                        border: 1px solid rgba(201,168,76,0.3);
                         border-radius: 12px;
-                        padding: 8px 16px;
-                        text-align: center;
-                        font-family: 'Outfit', sans-serif;
+                        padding: 10px 18px;
+                        font-family: 'DM Sans', sans-serif;
                         font-size: 12px;
-                        color: #ffcc66;
-                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-                        animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+                        font-weight: 400;
+                        color: rgba(232,201,106,0.9);
+                        text-align: center;
+                        animation: bannerIn 0.5s cubic-bezier(0.16,1,0.3,1);
+                    }
+                    @keyframes bannerIn {
+                        from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+                        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
                     }
 
-                    @keyframes slideUp {
-                        from { transform: translate(-50%, 40px); opacity: 0; }
-                        to { transform: translate(-50%, 0); opacity: 1; }
+                    /* ── Wish Card ── */
+                    .ar-wish-card {
+                        position: absolute;
+                        bottom: 28px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        z-index: 10000;
+                        width: 91%;
+                        max-width: 430px;
+                        background: var(--surface);
+                        backdrop-filter: blur(22px);
+                        -webkit-backdrop-filter: blur(22px);
+                        border: 1px solid var(--border);
+                        border-radius: 20px;
+                        padding: 18px 20px;
+                        display: grid;
+                        grid-template-columns: auto 1fr;
+                        gap: 14px;
+                        align-items: start;
+                        animation: wishIn 0.55s cubic-bezier(0.16,1,0.3,1);
                     }
-
-                    @keyframes floatIcon {
+                    @keyframes wishIn {
+                        from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+                        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+                    }
+                    .ar-wish-icon-wrap {
+                        width: 42px;
+                        height: 42px;
+                        border-radius: 12px;
+                        background: var(--gold-muted);
+                        border: 1px solid rgba(201,168,76,0.3);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 20px;
+                        flex-shrink: 0;
+                        animation: iconFloat 3.2s ease-in-out infinite;
+                    }
+                    @keyframes iconFloat {
                         0%, 100% { transform: translateY(0); }
-                        50% { transform: translateY(-5px); }
+                        50% { transform: translateY(-4px); }
+                    }
+                    .ar-wish-name {
+                        font-family: 'Cormorant Garamond', serif;
+                        font-size: 17px;
+                        font-weight: 600;
+                        color: var(--gold-light);
+                        margin: 0 0 5px 0;
+                        line-height: 1.2;
+                    }
+                    .ar-wish-body {
+                        font-family: 'DM Sans', sans-serif;
+                        font-size: 12px;
+                        font-weight: 300;
+                        color: var(--text-secondary);
+                        margin: 0;
+                        line-height: 1.55;
+                        font-style: italic;
+                    }
+
+                    /* ── Divider line under card top ── */
+                    .ar-wish-divider {
+                        grid-column: 1 / -1;
+                        height: 1px;
+                        background: var(--border);
+                        margin: 2px 0 0;
+                        display: none;
                     }
                 `}</style>
 
-                {/* Scanning reticle: pulsing frame until first target is found */}
+                {/* Scanning reticle */}
                 {!isTargetVisible && !hasBeenDetected && (
-                    <div className="ar-scanning-reticle">
-                        <div className="ar-reticle-box">
-                            <span className="corner top-left"></span>
-                            <span className="corner top-right"></span>
-                            <span className="corner bottom-left"></span>
-                            <span className="corner bottom-right"></span>
+                    <div className="ar-reticle-wrap">
+                        <div className="ar-reticle-frame">
+                            <span className="c tl"></span>
+                            <span className="c tr"></span>
+                            <span className="c bl"></span>
+                            <span className="c br"></span>
+                            <div className="ar-reticle-inner-ring"></div>
                         </div>
-                        <div className="ar-scanning-text">
-                            <span>🔍 Align camera with Vesak QR Code</span>
-                        </div>
+                        <div className="ar-reticle-label">Align with Vesak QR Code</div>
                     </div>
                 )}
 
-                {/* Glassmorphic AR status indicator in top-right */}
+                {/* Status pill */}
                 {hasBeenDetected && (
-                    <div className="ar-hud-status">
-                        <div className={`ar-status-dot ${isTargetVisible ? "active" : "explore"}`}></div>
-                        <span className="ar-status-text">
-                            {isTargetVisible ? "✨ QR TRACKED" : "🔍 SEARCHING..."}
-                        </span>
+                    <div className="ar-status-pill">
+                        <div className={`ar-status-led ${isTargetVisible ? "tracked" : "searching"}`}></div>
+                        <span>{isTargetVisible ? "Tracking" : "Searching…"}</span>
                     </div>
                 )}
 
-                {/* Instruction toast when target is lost */}
+                {/* Restore banner */}
                 {hasBeenDetected && !isTargetVisible && (
-                    <div className="ar-explore-banner">
-                        <span>💡 Point your camera back at the Vesak QR code to see the lantern!</span>
+                    <div className="ar-restore-banner">
+                        Point camera at the Vesak QR code to restore the lantern
                     </div>
                 )}
 
-                {/* Exit back button */}
-                <button className="ar-btn-back" onClick={handleExit}>
-                    <span>← Exit AR</span>
+                {/* Back button */}
+                <button className="ar-back-btn" onClick={handleExit}>
+                    <span className="ar-back-arrow">←</span>
+                    <span>Exit AR</span>
                 </button>
 
-                {/* Bottom customized wish greeting */}
-                <div className="ar-wishing-overlay">
-                    <div className="ar-overlay-icon">🪔</div>
-                    <div className="ar-overlay-content">
-                        <h3 className="ar-overlay-title">
-                            Happy Vesak{userName ? `, ${userName}` : ""}! ✨
-                        </h3>
-                        <p className="ar-overlay-text">“ {wishText} ”</p>
+                {/* Wish card */}
+                <div className="ar-wish-card">
+                    <div className="ar-wish-icon-wrap">🪔</div>
+                    <div>
+                        <p className="ar-wish-name">
+                            Happy Vesak{userName ? `, ${userName}` : ""}
+                        </p>
+                        <p className="ar-wish-body">{wishText}</p>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // ----------------------------------------------------
-    // WELCOME / WISHING SCREEN (INTRO UI)
-    // ----------------------------------------------------
+    // ─── WELCOME SCREEN ─────────────────────────────────────────────────────────
     return (
-        <div className="vesak-intro-container">
-            {/* Elegant Font & Pre-Render Styling */}
+        <div className="intro-root">
             <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Cinzel:wght@600;700;800&family=Noto+Sans+Sinhala:wght@300;400;500;600;700;800&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+Sinhala:wght@300;400;500;600&display=swap');
 
-                .vesak-intro-container {
+                :root {
+                    --bg:          #0A090E;
+                    --surface-1:   #111018;
+                    --surface-2:   #18161F;
+                    --border:      #18161F;
+                    --border-hover:rgba(201,168,76,0.5);
+                    --gold:        #C9A84C;
+                    --gold-light:  #E8C96A;
+                    --gold-dim:    rgba(201,168,76,0.12);
+                    --gold-glow:   rgba(201,168,76,0.28);
+                    --text-1:      #F0EBE1;
+                    --text-2:      rgba(240,235,225,0.5);
+                    --text-3:      rgba(240,235,225,0.3);
+                    --sinhala:     'Noto Sans Sinhala', sans-serif;
+                }
+
+                * { box-sizing: border-box; margin: 0; padding: 0; }
+
+                .intro-root {
                     width: 100vw;
                     height: 100vh;
                     position: fixed;
-                    top: 0;
-                    left: 0;
-                    background: linear-gradient(rgba(10, 5, 20, 0.82), rgba(10, 5, 20, 0.94)), url('/images/buddha.png') no-repeat center center / cover;
-                    color: #ffffff;
-                    font-family: 'Outfit', 'Noto Sans Sinhala', sans-serif;
+                    inset: 0;
+                    background: var(--bg);
+                    color: var(--text-1);
+                    font-family: 'DM Sans', sans-serif;
                     display: flex;
                     justify-content: center;
                     align-items: center;
@@ -638,306 +610,399 @@ export default function ARScene() {
                     z-index: 999;
                 }
 
-                /* Animated rising golden sparks */
-                .vesak-sparks-bg {
+                /* ── Background layers ── */
+                .intro-bg-image {
                     position: absolute;
-                    width: 100%;
-                    height: 100%;
-                    top: 0;
-                    left: 0;
-                    pointer-events: none;
+                    inset: 0;
+                    background: url('/images/buddha.png') no-repeat center center / cover;
+                    opacity: 0.07;
+                    z-index: 0;
+                }
+                .intro-bg-gradient {
+                    position: absolute;
+                    inset: 0;
+                    background:
+                        radial-gradient(ellipse 70% 55% at 50% 110%, rgba(201,168,76,0.09) 0%, transparent 70%),
+                        radial-gradient(ellipse 100% 60% at 50% 0%, rgba(30,20,50,0.6) 0%, transparent 80%);
                     z-index: 1;
+                    pointer-events: none;
                 }
 
-                .vesak-spark {
+                /* ── Sparks ── */
+                .intro-sparks {
                     position: absolute;
-                    bottom: -20px;
-                    border-radius: 50%;
-                    background: radial-gradient(circle, rgba(254,204,40,0.85) 0%, rgba(212,175,55,0) 70%);
-                    box-shadow: 0 0 10px rgba(254,204,40,0.6);
-                    opacity: 0;
-                    animation: floatUp 8s ease-in-out infinite;
-                }
-
-                @keyframes floatUp {
-                    0% {
-                        transform: translateY(0) translateX(0) scale(0.6);
-                        opacity: 0;
-                    }
-                    10% {
-                        opacity: 0.75;
-                    }
-                    90% {
-                        opacity: 0.75;
-                    }
-                    100% {
-                        transform: translateY(-115vh) translateX(60px) scale(0.3);
-                        opacity: 0;
-                    }
-                }
-
-                /* Glassmorphic card design */
-                .vesak-card {
-                    width: 90%;
-                    max-width: 460px;
-                    background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    border: 1px solid rgba(212, 175, 55, 0.25);
-                    border-radius: 28px;
-                    padding: 30px 24px;
-                    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.65), 0 0 30px rgba(212,175,55,0.05) inset;
-                    text-align: center;
+                    inset: 0;
                     z-index: 2;
-                    animation: cardFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+                    pointer-events: none;
+                    overflow: hidden;
+                }
+                .spark {
+                    position: absolute;
+                    bottom: -12px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(232,201,106,0.9) 0%, transparent 70%);
+                    opacity: 0;
+                    animation: sparkRise linear infinite;
+                }
+                @keyframes sparkRise {
+                    0%   { opacity: 0; transform: translateY(0) scale(1); }
+                    8%   { opacity: 0.65; }
+                    88%  { opacity: 0.45; }
+                    100% { opacity: 0; transform: translateY(-110vh) translateX(40px) scale(0.3); }
                 }
 
-                @keyframes cardFadeIn {
-                    from { transform: translateY(30px); opacity: 0; }
-                    to { transform: translateY(0); opacity: 1; }
+                /* ── Decorative divider ── */
+                .lotus-divider {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin: 0 0 22px;
+                }
+                .lotus-line {
+                    flex: 1;
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, var(--border), transparent);
+                }
+                .lotus-dot {
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 50%;
+                    background: var(--gold);
+                    opacity: 0.6;
                 }
 
+                /* ── Card ── */
+                .intro-card {
+                    position: relative;
+                    z-index: 10;
+                    width: 92%;
+                    max-width: 448px;
+                    max-height: 92vh;
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    background: var(--surface-1);
+                    border: 1px solid var(--border);
+                    border-radius: 24px;
+                    padding: 32px 26px 28px;
+                    box-shadow:
+                        0 0 0 1px rgba(0,0,0,0.5),
+                        0 24px 60px rgba(0,0,0,0.6),
+                        0 0 80px rgba(201,168,76,0.04) inset;
+                    animation: cardIn 0.7s cubic-bezier(0.16,1,0.3,1) both;
+                    scrollbar-width: none;
+                }
+                .intro-card::-webkit-scrollbar { display: none; }
+                @keyframes cardIn {
+                    from { opacity: 0; transform: translateY(24px) scale(0.98); }
+                    to   { opacity: 1; transform: translateY(0) scale(1); }
+                }
 
+                /* ── Badge ── */
+                .intro-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: var(--gold-dim);
+                    border: 1px solid var(--border);
+                    border-radius: 100px;
+                    padding: 5px 12px;
+                    font-size: 10px;
+                    font-weight: 500;
+                    letter-spacing: 1.2px;
+                    text-transform: uppercase;
+                    color: var(--gold);
+                    margin-bottom: 16px;
+                }
+                .intro-badge-dot {
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 50%;
+                    background: var(--gold-light);
+                    animation: ledPulse2 2s ease-in-out infinite;
+                }
+                @keyframes ledPulse2 {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.3; }
+                }
 
-                .vesak-title {
-                    font-family: 'Cinzel', serif;
-                    font-size: 26px;
+                /* ── Heading ── */
+                .intro-title {
+                    font-family: 'Cormorant Garamond', serif;
+                    font-size: 32px;
                     font-weight: 700;
-                    letter-spacing: 2px;
-                    color: #d4af37;
-                    text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
-                    margin: 0 0 10px 0;
+                    color: var(--text-1);
+                    line-height: 1.15;
+                    letter-spacing: -0.3px;
+                    margin-bottom: 10px;
                 }
-
-                .vesak-subtitle {
+                .intro-title em {
+                    font-style: italic;
+                    color: var(--gold-light);
+                }
+                .intro-subtitle {
                     font-size: 13px;
                     font-weight: 300;
-                    line-height: 1.5;
-                    color: #d8d8d8;
-                    margin: 0 0 24px 0;
+                    line-height: 1.65;
+                    color: var(--text-2);
+                    font-family: var(--sinhala);
+                    margin-bottom: 24px;
                 }
 
-                /* Inputs & Labels styling */
-                .vesak-input-group {
-                    text-align: left;
-                    margin-bottom: 20px;
-                }
-
-                .vesak-label {
+                /* ── Section label ── */
+                .field-label {
                     display: block;
                     font-size: 10px;
-                    font-weight: 700;
-                    letter-spacing: 1.5px;
-                    color: #d4af37;
-                    margin-bottom: 8px;
+                    font-weight: 600;
+                    letter-spacing: 1.4px;
                     text-transform: uppercase;
+                    color: var(--gold);
+                    margin-bottom: 8px;
+                    opacity: 0.85;
                 }
 
-                .vesak-input {
+                /* ── Name input ── */
+                .intro-field {
+                    margin-bottom: 22px;
+                }
+                .intro-input {
                     width: 100%;
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.15);
-                    border-radius: 12px;
-                    padding: 12px 16px;
-                    font-family: 'Outfit', sans-serif;
+                    background: var(--surface-2);
+                    border: 1px solid rgba(255,255,255,0.07);
+                    border-radius: 11px;
+                    padding: 12px 14px;
+                    font-family: 'DM Sans', sans-serif;
                     font-size: 14px;
-                    color: #ffffff;
-                    box-sizing: border-box;
-                    transition: all 0.3s ease;
-                }
-
-                .vesak-input:focus {
+                    font-weight: 300;
+                    color: var(--text-1);
                     outline: none;
-                    background: rgba(255, 255, 255, 0.09);
-                    border-color: #d4af37;
-                    box-shadow: 0 0 10px rgba(212,175,55,0.25);
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                }
+                .intro-input::placeholder { color: var(--text-3); }
+                .intro-input:focus {
+                    border-color: rgba(201,168,76,0.45);
+                    box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
                 }
 
-                /* Custom Tabs styling */
-                .vesak-wish-selector {
-                    text-align: left;
-                    margin-bottom: 26px;
+                /* ── Wish selector ── */
+                .wish-section {
+                    margin-bottom: 22px;
                 }
-
-                .vesak-preset-tabs {
-                    display: flex;
+                .wish-tabs {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
                     gap: 8px;
                     margin-bottom: 12px;
                 }
-
-                .vesak-tab {
-                    flex: 1;
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 10px;
-                    padding: 10px 4px;
-                    font-family: 'Outfit', sans-serif;
-                    font-size: 11px;
-                    font-weight: 500;
-                    color: #b0b0b0;
+                .wish-tab {
+                    background: var(--surface-2);
+                    border: 1px solid rgba(255,255,255,0.06);
+                    border-radius: 11px;
+                    padding: 11px 6px 10px;
                     cursor: pointer;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    gap: 4px;
-                    transition: all 0.3s ease;
+                    gap: 5px;
+                    transition: all 0.2s ease;
                 }
-
-                .vesak-tab-text {
+                .wish-tab-emoji {
+                    font-size: 20px;
+                    line-height: 1;
+                    transition: transform 0.2s;
+                }
+                .wish-tab-label {
+                    font-family: var(--sinhala);
                     font-size: 9px;
-                    opacity: 0.8;
-                }
-
-                .vesak-tab.active {
-                    background: rgba(212, 175, 55, 0.12);
-                    border-color: rgba(212, 175, 55, 0.8);
-                    color: #f3e5ab;
-                }
-
-                .vesak-textarea {
-                    width: 100%;
-                    height: 70px;
-                    background: rgba(255, 255, 255, 0.04);
-                    border: 1px solid rgba(255, 255, 255, 0.15);
-                    border-radius: 12px;
-                    padding: 12px 16px;
-                    font-family: 'Outfit', sans-serif;
-                    font-size: 13px;
-                    color: #eaeaea;
+                    font-weight: 500;
+                    color: var(--text-2);
+                    text-align: center;
                     line-height: 1.4;
-                    resize: none;
-                    box-sizing: border-box;
-                    transition: all 0.3s ease;
+                    transition: color 0.2s;
                 }
-
-                .vesak-textarea:focus {
-                    outline: none;
-                    background: rgba(255, 255, 255, 0.08);
-                    border-color: #d4af37;
-                    box-shadow: 0 0 10px rgba(212,175,55,0.25);
+                .wish-tab.active {
+                    background: var(--gold-dim);
+                    border-color: rgba(201,168,76,0.45);
                 }
-
-                /* Glowing Gold Start Button */
-                .vesak-btn-start {
+                .wish-tab.active .wish-tab-label {
+                    color: var(--gold-light);
+                }
+                .wish-tab.active .wish-tab-emoji {
+                    transform: scale(1.12);
+                }
+                .wish-tab:hover:not(.active) {
+                    border-color: rgba(255,255,255,0.12);
+                    background: rgba(255,255,255,0.03);
+                }
+                .wish-textarea {
                     width: 100%;
-                    background: linear-gradient(135deg, #d4af37 0%, #f3e5ab 50%, #aa7c11 100%);
-                    border: none;
-                    border-radius: 14px;
-                    padding: 15px 24px;
-                    font-family: 'Outfit', sans-serif;
-                    font-size: 16px;
-                    font-weight: 700;
-                    color: #0b0518;
-                    cursor: pointer;
-                    box-shadow: 0 5px 20px rgba(212,175,55,0.4);
-                    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+                    height: 76px;
+                    background: var(--surface-2);
+                    border: 1px solid rgba(255,255,255,0.07);
+                    border-radius: 11px;
+                    padding: 12px 14px;
+                    font-family: var(--sinhala);
+                    font-size: 12px;
+                    font-weight: 300;
+                    color: var(--text-1);
+                    line-height: 1.55;
+                    resize: none;
+                    outline: none;
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                }
+                .wish-textarea::placeholder { color: var(--text-3); }
+                .wish-textarea:focus {
+                    border-color: rgba(201,168,76,0.4);
+                    box-shadow: 0 0 0 3px rgba(201,168,76,0.07);
+                }
+
+                /* ── CTA Button ── */
+                .intro-cta {
+                    width: 100%;
                     position: relative;
                     overflow: hidden;
+                    background: linear-gradient(135deg, #C9A84C 0%, #E8C96A 48%, #A07830 100%);
+                    border: none;
+                    border-radius: 13px;
+                    padding: 15px 24px;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: #0A0800;
+                    letter-spacing: 0.2px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 9px;
+                    box-shadow: 0 4px 20px rgba(201,168,76,0.3), 0 1px 0 rgba(255,255,255,0.15) inset;
+                    transition: transform 0.2s, box-shadow 0.2s;
                 }
-
-                .vesak-btn-start::before {
+                .intro-cta::after {
                     content: '';
                     position: absolute;
-                    top: 0;
-                    left: -100%;
-                    width: 100%;
-                    height: 100%;
-                    background: linear-gradient(
-                        90deg,
-                        transparent,
-                        rgba(255, 255, 255, 0.4),
-                        transparent
-                    );
-                    transition: all 0.6s ease;
+                    inset: 0;
+                    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
+                    transform: translateX(-100%);
+                    transition: transform 0.6s ease;
                 }
+                .intro-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(201,168,76,0.42); }
+                .intro-cta:hover::after { transform: translateX(100%); }
+                .intro-cta:active { transform: translateY(1px); box-shadow: 0 2px 10px rgba(201,168,76,0.28); }
+                .cta-icon { font-size: 17px; }
 
-                .vesak-btn-start:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 8px 25px rgba(212,175,55,0.55);
-                }
-
-                .vesak-btn-start:hover::before {
-                    left: 100%;
-                }
-
-                .vesak-btn-start:active {
-                    transform: translateY(1px);
-                    box-shadow: 0 2px 10px rgba(212,175,55,0.4);
+                /* ── Footer caption ── */
+                .intro-footer {
+                    margin-top: 16px;
+                    text-align: center;
+                    font-size: 11px;
+                    font-weight: 300;
+                    color: var(--text-3);
+                    letter-spacing: 0.3px;
                 }
             `}</style>
 
-            {/* Rising warm sparks in bg */}
-            <div className="vesak-sparks-bg">
-                {sparks.map((spark) => (
+            {/* Layered background */}
+            <div className="intro-bg-image" />
+            <div className="intro-bg-gradient" />
+
+            {/* Sparks */}
+            <div className="intro-sparks">
+                {sparks.map((s) => (
                     <div
-                        key={spark.id}
-                        className="vesak-spark"
+                        key={s.id}
+                        className="spark"
                         style={{
-                            left: spark.left,
-                            animationDelay: spark.delay,
-                            animationDuration: spark.duration,
-                            width: spark.size,
-                            height: spark.size,
+                            left: s.left,
+                            animationDelay: s.delay,
+                            animationDuration: s.duration,
+                            width: s.size,
+                            height: s.size,
                         }}
                     />
                 ))}
             </div>
 
-            {/* Glassmorphic card welcome view */}
-            <div className="vesak-card">
-                <h1 className="vesak-title">AR වෙසක් පහන් කූඩුව</h1>
-                <p className="vesak-subtitle">
-                    පූජනීය බුදු රශ්මි මාලාවෙන් ඔබගේ පරිසරය ඒකාලෝක කරන්න. ඔබ ආදරය කරන අය වෙනුවෙන් උතුම් වෙසක් ආශිර්වාදයක් එක් කරන්න.
+            {/* Card */}
+            <div className="intro-card">
+
+                {/* Badge */}
+                <div style={{ marginBottom: 18 }}>
+                    <span className="intro-badge">
+                        <span className="intro-badge-dot" />
+                        Augmented Reality · Vesak 2025
+                    </span>
+                </div>
+
+                {/* Heading */}
+                <h1 className="intro-title">
+                    AR <em>වෙසක්</em><br />පහන් කූඩුව
+                </h1>
+
+                {/* Lotus divider */}
+                <div className="lotus-divider">
+                    <div className="lotus-line" />
+                    <div className="lotus-dot" />
+                    <div className="lotus-dot" style={{ opacity: 0.35 }} />
+                    <div className="lotus-dot" />
+                    <div className="lotus-line" />
+                </div>
+
+                <p className="intro-subtitle">
+                    පූජනීය බුදු රශ්මි මාලාවෙන් ඔබගේ පරිසරය ඒකාලෝක කරන්න. ආදරය කරන අය වෙනුවෙන් උතුම් වෙසක් ආශිර්වාදයක් එක් කරන්න.
                 </p>
 
                 {/* Name field */}
-                <div className="vesak-input-group">
-                    <label className="vesak-label">මෙම ආශිර්වාදය කා වෙනුවෙන්ද?</label>
+                <div className="intro-field">
+                    <label className="field-label">මෙම ආශිර්වාදය කා වෙනුවෙන්ද?</label>
                     <input
                         type="text"
-                        className="vesak-input"
-                        placeholder="නම ඇතුළත් කරන්න (උදා: මවුපියන්, පවුලේ සැම, මිතුරා)"
+                        className="intro-input"
+                        placeholder="නම ඇතුළත් කරන්න…"
                         value={userName}
                         onChange={(e) => setUserName(e.target.value)}
                     />
                 </div>
 
-                {/* Preset Blessing Selector */}
-                <div className="vesak-wish-selector">
-                    <label className="vesak-label">වෙසක් ආශිර්වාදයක් තෝරන්න</label>
-                    <div className="vesak-preset-tabs">
-                        {PRESET_WISHES.map((preset) => (
-                            <button
-                                key={preset.id}
-                                className={`vesak-tab ${selectedWishId === preset.id ? "active" : ""
-                                    }`}
-                                onClick={() => {
-                                    setSelectedWishId(preset.id);
-                                    setWishText(preset.text);
-                                }}
-                            >
-                                <span>{preset.label.split(" ")[0]}</span>
-                                <span className="vesak-tab-text">
-                                    {preset.label.split(" ").slice(1).join(" ")}
-                                </span>
-                            </button>
-                        ))}
+                {/* Wish selector */}
+                <div className="wish-section">
+                    <label className="field-label">වෙසක් ආශිර්වාදයක් තෝරන්න</label>
+                    <div className="wish-tabs">
+                        {PRESET_WISHES.map((preset) => {
+                            const emoji = preset.label.split(" ")[0];
+                            const label = preset.label.split(" ").slice(1).join(" ");
+                            return (
+                                <button
+                                    key={preset.id}
+                                    className={`wish-tab ${selectedWishId === preset.id ? "active" : ""}`}
+                                    onClick={() => {
+                                        setSelectedWishId(preset.id);
+                                        setWishText(preset.text);
+                                    }}
+                                >
+                                    <span className="wish-tab-emoji">{emoji}</span>
+                                    <span className="wish-tab-label">{label}</span>
+                                </button>
+                            );
+                        })}
                     </div>
                     <textarea
-                        className="vesak-textarea"
+                        className="wish-textarea"
                         value={wishText}
                         onChange={(e) => {
                             setSelectedWishId("custom");
                             setWishText(e.target.value);
                         }}
-                        placeholder="ඔබේම වෙසක් ආශිර්වාදයක් මෙහි ලියන්න..."
+                        placeholder="ඔබේම ආශිර්වාදයක් ලියන්න…"
                     />
                 </div>
 
-                {/* Glowing launch button */}
-                <button className="vesak-btn-start" onClick={handleStart}>
-                    <span>✨ AR පහන් කූඩුව බලන්න</span>
+                {/* CTA */}
+                <button className="intro-cta" onClick={handleStart}>
+                    <span className="cta-icon">✦</span>
+                    <span>AR පහන් කූඩුව බලන්න</span>
                 </button>
+
+                <p className="intro-footer">Point your camera at the Vesak QR code after launching</p>
             </div>
         </div>
     );
