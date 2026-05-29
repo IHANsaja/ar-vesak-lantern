@@ -7,18 +7,18 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 const PRESET_WISHES = [
     {
         id: "peace",
-        label: "🕊️ Peace & Harmony",
-        text: "May the serene light of Vesak fill your heart and home with eternal peace, harmony, and happiness."
+        label: "🕊️ සාමය සහ සමගිය",
+        text: "පින්බර වෙසක් මංගල්‍යයේ උතුම් ආලෝකය ඔබගේ හදවතත් නිවසත් සදාකාලික සාමයෙන්, සමගියෙන් සහ සතුටෙන් පුරවාලත්වා!"
     },
     {
         id: "wisdom",
-        label: "🪔 Wisdom & Light",
-        text: "Wishing you the sacred blessings of Buddha: a path of truth, wisdom, and inner light to guide your journey."
+        label: "🪔 ප්‍රඥාව සහ ආලෝකය",
+        text: "සම්මා සම්බුදු සරණින් සත්‍යයේ, ප්‍රඥාවේ සහ අභ්‍යන්තර ආලෝකයේ මඟ හෙළිවී ඔබගේ ජීවිතය වාසනාවන්ත වේවා!"
     },
     {
         id: "compassion",
-        label: "🌸 Compassion & Joy",
-        text: "May Gautama Buddha bless your life with boundless compassion, deep joy, and mindful well-being."
+        label: "🌸 කරුණාව සහ ප්‍රීතිය",
+        text: "ගෞතම බුදුරජාණන් වහන්සේගේ අපිරිමිත කරුණාව, අසිරිමත් ප්‍රීතිය සහ ප්‍රඥාව ඔබගේ ජීවිතයට සැමදා ලැබේවා!"
     }
 ];
 
@@ -92,7 +92,7 @@ export default function ARScene() {
         } catch (err) {
             console.warn("Fullscreen request skipped or blocked by browser:", err);
         }
-        
+
         // Initialize and preload audio upon user interaction
         if (!audioRef.current) {
             audioRef.current = new Audio("/audio/vesakSong.mp3");
@@ -120,7 +120,7 @@ export default function ARScene() {
         } catch (err) {
             console.warn("Exit fullscreen failed:", err);
         }
-        
+
         // Stop audio when exiting AR
         if (audioRef.current) {
             audioRef.current.pause();
@@ -187,17 +187,17 @@ export default function ARScene() {
                 setIsTargetVisible(true);
                 setHasBeenDetected(true);
                 console.log("Target found — model placed and tracked");
-                
+
                 // Play audio when lantern appears
                 if (audioRef.current) {
                     audioRef.current.play().catch(e => console.warn("Audio playback failed:", e));
                 }
             };
-            
+
             anchor.onTargetLost = () => {
                 setIsTargetVisible(false);
                 console.log("Target tracking lost");
-                
+
                 // Pause audio when lantern disappears
                 if (audioRef.current) {
                     audioRef.current.pause();
@@ -620,7 +620,7 @@ export default function ARScene() {
         <div className="vesak-intro-container">
             {/* Elegant Font & Pre-Render Styling */}
             <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Cinzel:wght@600;700;800&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Cinzel:wght@600;700;800&family=Noto+Sans+Sinhala:wght@300;400;500;600;700;800&display=swap');
 
                 .vesak-intro-container {
                     width: 100vw;
@@ -630,7 +630,7 @@ export default function ARScene() {
                     left: 0;
                     background: radial-gradient(circle at center, #1b0f32 0%, #060211 100%);
                     color: #ffffff;
-                    font-family: 'Outfit', sans-serif;
+                    font-family: 'Outfit', 'Noto Sans Sinhala', sans-serif;
                     display: flex;
                     justify-content: center;
                     align-items: center;
@@ -697,16 +697,40 @@ export default function ARScene() {
                     to { transform: translateY(0); opacity: 1; }
                 }
 
-                .vesak-icon {
-                    font-size: 40px;
-                    margin-bottom: 12px;
-                    filter: drop-shadow(0 0 15px rgba(254,204,40,0.7));
-                    animation: pulseLight 2s infinite ease-in-out;
+                .vesak-buddha-img-container {
+                    width: 130px;
+                    height: 130px;
+                    margin: 0 auto 22px auto;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(254, 204, 40, 0.15) 0%, rgba(212, 175, 55, 0.02) 100%);
+                    border: 2px solid rgba(212, 175, 55, 0.55);
+                    box-shadow: 0 0 25px rgba(212, 175, 55, 0.4), 0 0 12px rgba(212, 175, 55, 0.15) inset;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    animation: pulseGlow 3s infinite ease-in-out;
+                    transition: all 0.5s ease;
                 }
 
-                @keyframes pulseLight {
-                    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(254,204,40,0.5)); }
-                    50% { transform: scale(1.1); filter: drop-shadow(0 0 20px rgba(254,204,40,0.85)); }
+                .vesak-buddha-img {
+                    width: 90%;
+                    height: 90%;
+                    object-fit: contain;
+                    filter: drop-shadow(0 0 8px rgba(254, 204, 40, 0.3));
+                }
+
+                @keyframes pulseGlow {
+                    0%, 100% {
+                        transform: scale(1);
+                        box-shadow: 0 0 25px rgba(212, 175, 55, 0.4), 0 0 12px rgba(212, 175, 55, 0.15) inset;
+                        border-color: rgba(212, 175, 55, 0.55);
+                    }
+                    50% {
+                        transform: scale(1.04);
+                        box-shadow: 0 0 40px rgba(212, 175, 55, 0.75), 0 0 20px rgba(212, 175, 55, 0.35) inset;
+                        border-color: rgba(212, 175, 55, 0.9);
+                    }
                 }
 
                 .vesak-title {
@@ -895,19 +919,21 @@ export default function ARScene() {
 
             {/* Glassmorphic card welcome view */}
             <div className="vesak-card">
-                <div className="vesak-icon">🪔</div>
-                <h1 className="vesak-title">VESAK AR LANTERN</h1>
+                <div className="vesak-buddha-img-container">
+                    <img src="/images/buddha.png" alt="Buddha" className="vesak-buddha-img" />
+                </div>
+                <h1 className="vesak-title">AR වෙසක් පහන් කූඩුව</h1>
                 <p className="vesak-subtitle">
-                    Illuminate your physical environment in sacred light. Enter a name to compose a blessing and launch the experience.
+                    පූජනීය බුදු රශ්මි මාලාවෙන් ඔබගේ පරිසරය ඒකාලෝක කරන්න. ඔබ ආදරය කරන අය වෙනුවෙන් උතුම් වෙසක් ආශිර්වාදයක් එක් කරන්න.
                 </p>
 
                 {/* Name field */}
                 <div className="vesak-input-group">
-                    <label className="vesak-label">Who is this blessing for?</label>
+                    <label className="vesak-label">මෙම ආශිර්වාදය කා වෙනුවෙන්ද?</label>
                     <input
                         type="text"
                         className="vesak-input"
-                        placeholder="Enter name (e.g., Mother, My Family, Friend)"
+                        placeholder="නම ඇතුළත් කරන්න (උදා: මවුපියන්, පවුලේ සැම, මිතුරා)"
                         value={userName}
                         onChange={(e) => setUserName(e.target.value)}
                     />
@@ -915,7 +941,7 @@ export default function ARScene() {
 
                 {/* Preset Blessing Selector */}
                 <div className="vesak-wish-selector">
-                    <label className="vesak-label">Select a Vesak Blessing</label>
+                    <label className="vesak-label">වෙසක් ආශිර්වාදයක් තෝරන්න</label>
                     <div className="vesak-preset-tabs">
                         {PRESET_WISHES.map((preset) => (
                             <button
@@ -941,13 +967,13 @@ export default function ARScene() {
                             setSelectedWishId("custom");
                             setWishText(e.target.value);
                         }}
-                        placeholder="Write a custom Vesak blessing..."
+                        placeholder="ඔබේම වෙසක් ආශිර්වාදයක් මෙහි ලියන්න..."
                     />
                 </div>
 
                 {/* Glowing launch button */}
                 <button className="vesak-btn-start" onClick={handleStart}>
-                    <span>✨ Start AR Experience</span>
+                    <span>✨ AR පහන් කූඩුව බලන්න</span>
                 </button>
             </div>
         </div>
