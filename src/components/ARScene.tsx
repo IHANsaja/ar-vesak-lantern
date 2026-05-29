@@ -264,6 +264,24 @@ export default function ARScene() {
             );
 
             await mindarThree.start();
+
+            // Attempt to enable continuous autofocus for better QR tracking
+            try {
+                const video = mindarThree.video;
+                if (video && video.srcObject) {
+                    const stream = video.srcObject as MediaStream;
+                    const track = stream.getVideoTracks()[0];
+                    if (track && track.applyConstraints) {
+                        // Using 'advanced' constraints so the browser can ignore them if unsupported
+                        await track.applyConstraints({
+                            advanced: [{ focusMode: "continuous" }]
+                        } as any);
+                        console.log("AR Camera: Continuous autofocus enabled");
+                    }
+                }
+            } catch (err) {
+                console.warn("AR Camera: Autofocus constraints not supported on this device", err);
+            }
         };
 
         start();
