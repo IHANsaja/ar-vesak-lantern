@@ -4,36 +4,26 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
-const PRESET_WISHES = [
-    {
-        id: "peace",
-        label: "🕊️ සාමය සහ සමගිය",
-        text: "පින්බර වෙසක් මංගල්‍යයේ උතුම් ආලෝකය ඔබගේ හදවතත් නිවසත් සදාකාලික සාමයෙන්, සමගියෙන් සහ සතුටෙන් පුරවාලත්වා!"
-    },
-    {
-        id: "wisdom",
-        label: "🪔 ප්‍රඥාව සහ ආලෝකය",
-        text: "සම්මා සම්බුදු සරණින් සත්‍යයේ, ප්‍රඥාවේ සහ අභ්‍යන්තර ආලෝකයේ මඟ හෙළිවී ඔබගේ ජීවිතය වාසනාවන්ත වේවා!"
-    },
-    {
-        id: "compassion",
-        label: "🌸 කරුණාව සහ ප්‍රීතිය",
-        text: "ගෞතම බුදුරජාණන් වහන්සේගේ අපිරිමිත කරුණාව, අසිරිමත් ප්‍රීතිය සහ ප්‍රඥාව ඔබගේ ජීවිතයට සැමදා ලැබේවා!"
-    }
-];
-
 export default function ARScene() {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [started, setStarted] = useState(false);
     const [userName, setUserName] = useState("");
-    const [selectedWishId, setSelectedWishId] = useState("peace");
-    const [wishText, setWishText] = useState(PRESET_WISHES[0].text);
+    const [wishText, setWishText] = useState("ඔබට පින්බර වෙසක් මංගල්යයක් වේවා!");
     const [sparks, setSparks] = useState<{ id: number; left: string; delay: string; duration: string; size: string }[]>([]);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const [isTargetVisible, setIsTargetVisible] = useState(false);
     const [hasBeenDetected, setHasBeenDetected] = useState(false);
     const [isPeeking, setIsPeeking] = useState(false);
+
+    // Update greeting whenever name changes
+    useEffect(() => {
+        if (userName.trim()) {
+            setWishText(`ඔබට පින්බර වෙසක් මංගල්‍යයක් වේවා, ${userName.trim()}!`);
+        } else {
+            setWishText("ඔබට පින්බර වෙසක් මංගල්‍යයක් වේවා!");
+        }
+    }, [userName]);
 
     useEffect(() => {
         const generatedSparks = Array.from({ length: 22 }).map((_, i) => ({
@@ -72,7 +62,24 @@ export default function ARScene() {
         };
     }, [started]);
 
+    const saveUserToCSV = async (name: string) => {
+        try {
+            await fetch('/api/log-ar-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+        } catch (err) {
+            console.warn('Failed to save user to CSV:', err);
+        }
+    };
+
     const handleStart = async () => {
+        // Fire-and-forget CSV save so AR launches immediately
+        if (userName.trim()) {
+            saveUserToCSV(userName.trim());
+        }
+
         try {
             const docEl = document.documentElement;
             if (docEl.requestFullscreen) {
@@ -147,19 +154,28 @@ export default function ARScene() {
             const { renderer, scene, camera } = mindarThree;
             rendererRef = renderer;
 
-            const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.2);
+            // ── Tone mapping exposure adjusted to 1.0 to keep colors rich and saturated without clipping to white ──
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+            // ── Base scene lighting (keep subtle so colored lights dominate) ──
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444466, 0.5);
             scene.add(hemiLight);
 
-            const pointLight = new THREE.PointLight(0xffffff, 2.5, 12);
-            pointLight.position.set(0, 1.5, 0);
-            scene.add(pointLight);
+            const ambientLight = new THREE.AmbientLight(0xffeedd, 0.2);
+            scene.add(ambientLight);
 
+            // ── Highly saturated, pure festive color palette (no washed-out tones) ──
             const festiveColors = [
-                new THREE.Color("#ff3333"),
-                new THREE.Color("#ffaa00"),
-                new THREE.Color("#00ff66"),
-                new THREE.Color("#3366ff"),
+                new THREE.Color(1.0, 0.0, 0.0),     // pure red
+                new THREE.Color(1.0, 0.85, 0.0),    // clear yellow/gold
+                new THREE.Color(0.0, 1.0, 0.1),     // clear green
+                new THREE.Color(0.0, 0.3, 1.0),     // clear blue
+                new THREE.Color(1.0, 0.0, 0.8),     // clear magenta
             ];
+
+            const COLOR_CHANGE_SPEED = 0.01;
 
             let colorIndex = 0;
             let nextColorIndex = 1;
@@ -170,6 +186,73 @@ export default function ARScene() {
             const modelContainer = new THREE.Group();
             modelContainer.rotation.x = Math.PI / 2;
             anchor.group.add(modelContainer);
+
+            // ── Create a radial-gradient glow texture for visible light sprites ──
+            const makeGlowTexture = (size: number = 256): THREE.Texture => {
+                const canvas = document.createElement("canvas");
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d")!;
+                const grad = ctx.createRadialGradient(
+                    size / 2, size / 2, 0,
+                    size / 2, size / 2, size / 2
+                );
+                // Clean grayscale gradient works perfectly with NormalBlending to display pure colors
+                grad.addColorStop(0, "rgba(255,255,255,1.0)");
+                grad.addColorStop(0.2, "rgba(255,255,255,0.6)");
+                grad.addColorStop(0.5, "rgba(255,255,255,0.25)");
+                grad.addColorStop(1, "rgba(255,255,255,0)");
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.needsUpdate = true;
+                return tex;
+            };
+
+            const glowTexture = makeGlowTexture(256);
+
+            // ── MAIN VISIBLE GLOW SPRITE — NormalBlending prevents color overlay from washing out to white ──
+            const mainGlowMat = new THREE.SpriteMaterial({
+                map: glowTexture,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.NormalBlending,
+                depthWrite: false,
+            });
+            const mainGlow = new THREE.Sprite(mainGlowMat);
+            mainGlow.scale.set(0.8, 0.8, 1);
+            mainGlow.position.set(0, 0.5, 0);
+            modelContainer.add(mainGlow);
+
+            // ── SECONDARY OUTER GLOW — softer, larger halo ring ──
+            const outerGlowMat = new THREE.SpriteMaterial({
+                map: glowTexture,
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.4,
+                blending: THREE.NormalBlending,
+                depthWrite: false,
+            });
+            const outerGlow = new THREE.Sprite(outerGlowMat);
+            outerGlow.scale.set(1.2, 1.2, 1);
+            outerGlow.position.set(0, 0.5, 0);
+            modelContainer.add(outerGlow);
+
+            // ── MAIN COLOR POINT LIGHT — casts vivid color onto the lantern surfaces ──
+            const colorLight = new THREE.PointLight(0xffffff, 4.0, 8);
+            colorLight.position.set(0, 0.5, 0);
+            modelContainer.add(colorLight);
+
+            // ── INNER WARM GLOW — warm core light inside the lantern ──
+            const innerGlow = new THREE.PointLight(0xffffff, 2.5, 6);
+            innerGlow.position.set(0, 0.3, 0);
+            modelContainer.add(innerGlow);
+
+            // ── DIRECTIONAL RIM LIGHT — adds specular highlights so surfaces catch the color ──
+            const rimLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            rimLight.position.set(2, 3, 2);
+            modelContainer.add(rimLight);
 
             anchor.onTargetFound = () => {
                 setIsTargetVisible(true);
@@ -201,35 +284,95 @@ export default function ARScene() {
                     model.position.z = -center.z;
                     model.position.y = -box.min.y;
 
-                    modelContainer.add(model);
-
-                    const subLanterns: THREE.Object3D[] = [];
-                    model.traverse((obj: THREE.Object3D) => {
-                        const name = obj.name.toLowerCase();
-                        if (name.startsWith("sublantern")) {
-                            subLanterns.push(obj);
+                    // Make model materials more receptive to colored lighting
+                    model.traverse((child: any) => {
+                        if (child.isMesh && child.material) {
+                            const mat = child.material;
+                            if (mat.isMeshStandardMaterial || mat.isMeshPhysicalMaterial) {
+                                mat.roughness = Math.min(mat.roughness, 0.65);
+                                mat.metalness = Math.max(mat.metalness, 0.15);
+                                mat.envMapIntensity = 0.5;
+                                mat.needsUpdate = true;
+                            }
                         }
                     });
 
-                    renderer.setAnimationLoop(() => {
-                        model.rotation.y += 0.005;
+                    modelContainer.add(model);
 
-                        subLanterns.forEach((lantern: THREE.Object3D, index: number) => {
-                            lantern.rotation.y += index % 2 === 0 ? 0.02 : -0.02;
+                    // Individual spin speeds per sub-lantern (matches Blender pivot)
+                    const SUB_LANTERN_SPEEDS: Record<string, number> = {
+                        sublantern1: 0.018,
+                        sublantern2: -0.022,
+                        sublantern3: 0.030,
+                        sublantern4: -0.016,
+                        sublantern5: 0.025,
+                        sublantern6: -0.028,
+                        sublantern7: 0.020,
+                        sublantern8: -0.014,
+                    };
+
+                    const subLanterns: Map<string, THREE.Object3D> = new Map();
+                    model.traverse((obj: THREE.Object3D) => {
+                        const name = obj.name.toLowerCase();
+                        if (name.startsWith("sublantern")) {
+                            subLanterns.set(name, obj);
+                        }
+                    });
+
+                    const currentColor = new THREE.Color();
+                    const time = { value: 0 };
+
+                    renderer.setAnimationLoop(() => {
+                        time.value += 0.016;
+                        model.rotation.y += 0.010; // faster main rotation
+
+                        subLanterns.forEach((lantern, name) => {
+                            lantern.rotation.y += (SUB_LANTERN_SPEEDS[name] ?? 0.01) * 0.8;
                         });
 
-                        lerpT += 0.008;
+                        // ── smooth color transition ──
+                        lerpT += COLOR_CHANGE_SPEED * 0.6; // slower color shifting
+
                         if (lerpT >= 1) {
                             lerpT = 0;
                             colorIndex = nextColorIndex;
                             nextColorIndex = (nextColorIndex + 1) % festiveColors.length;
                         }
 
-                        pointLight.color.lerpColors(
+                        currentColor.lerpColors(
                             festiveColors[colorIndex],
                             festiveColors[nextColorIndex],
                             lerpT
                         );
+
+                        colorLight.color.copy(currentColor);
+                        innerGlow.color.copy(currentColor); // color inside matches outside color
+                        mainGlowMat.color.copy(currentColor);
+                        outerGlowMat.color.copy(currentColor);
+                        rimLight.color.copy(currentColor);
+
+                        // ── SOFT PULSE SYSTEM (reduced amplitude + smoothed) ──
+                        const t = time.value;
+
+                        // gentler waves (less contrast, more calm breathing)
+                        const pulse1 = (Math.sin(t * 1.2) * 0.5 + 0.5) * 0.6 + 0.2;
+                        const pulse2 = (Math.sin(t * 0.9 + 1.5) * 0.5 + 0.5) * 0.5 + 0.3;
+                        const pulse3 = (Math.sin(t * 0.6 + 2.0) * 0.5 + 0.5) * 0.4 + 0.3;
+
+                        // ── LIGHT INTENSITIES (reduced range) ──
+                        colorLight.intensity = 3.0 + pulse1 * 1.5;   // was 3.5 → 5.5
+                        innerGlow.intensity = 1.5 + pulse2 * 1.0;    // softer core glow
+                        rimLight.intensity = 0.6 + pulse1 * 0.6;     // subtle rim light
+
+                        // ── MAIN GLOW (tighter pulse radius and lower scale) ──
+                        const glowScale = 0.8 + pulse1 * 0.2;        // tighter scale (0.8 to 1.0)
+                        mainGlow.scale.set(glowScale, glowScale, 1);
+                        mainGlowMat.opacity = 0.6 + pulse1 * 0.15;   // no harsh flashing
+
+                        // ── OUTER GLOW (very subtle halo motion) ──
+                        const outerScale = 1.3 + pulse3 * 0.3;       // tighter outer halo (1.3 to 1.6)
+                        outerGlow.scale.set(outerScale, outerScale, 1);
+                        outerGlowMat.opacity = 0.25 + pulse3 * 0.1;
 
                         renderer.render(scene, camera);
                     });
@@ -238,7 +381,6 @@ export default function ARScene() {
 
             await mindarThree.start();
 
-            // Capture the camera stream for cleanup
             try {
                 const video = mindarThree.video;
                 if (video && video.srcObject) {
@@ -246,7 +388,6 @@ export default function ARScene() {
                 }
             } catch (_) { }
 
-            // ── Enhanced Autofocus & Resolution ──
             try {
                 const video = mindarThree.video;
                 if (video && video.srcObject) {
@@ -254,23 +395,18 @@ export default function ARScene() {
                     const track = stream.getVideoTracks()[0];
                     if (track) {
                         const constraints: any = {};
-
-                        // Check if the device supports continuous autofocus
                         const capabilities = (track as any).getCapabilities?.();
                         if (capabilities?.focusMode?.includes("continuous")) {
                             constraints.focusMode = "continuous";
                         } else if (capabilities?.focusMode?.includes("single-shot")) {
                             constraints.focusMode = "single-shot";
                         }
-
-                        // Request higher resolution to reduce blurriness
                         if (capabilities?.width?.max) {
                             constraints.width = { ideal: Math.min(capabilities.width.max, 1920) };
                         }
                         if (capabilities?.height?.max) {
                             constraints.height = { ideal: Math.min(capabilities.height.max, 1080) };
                         }
-
                         if (Object.keys(constraints).length > 0) {
                             await track.applyConstraints(constraints);
                         }
@@ -284,27 +420,18 @@ export default function ARScene() {
         start();
 
         return () => {
-            // Stop the animation loop first
             if (rendererRef) {
                 rendererRef.setAnimationLoop(null);
             }
-
-            // Stop MindAR tracking
             if (mindarThree) {
                 try { mindarThree.stop(); } catch (_) { }
             }
-
-            // Stop all camera media tracks
             if (streamRef) {
                 streamRef.getTracks().forEach(track => track.stop());
             }
-
-            // Dispose Three.js renderer
             if (rendererRef) {
                 rendererRef.dispose();
             }
-
-            // Remove any leftover video/canvas elements MindAR injected
             if (containerEl) {
                 const leftoverVideos = containerEl.querySelectorAll("video");
                 leftoverVideos.forEach(v => {
@@ -317,8 +444,6 @@ export default function ARScene() {
                 const leftoverCanvases = containerEl.querySelectorAll("canvas");
                 leftoverCanvases.forEach(c => c.remove());
             }
-
-            // Reset tracking state
             setIsTargetVisible(false);
             setHasBeenDetected(false);
         };
@@ -359,7 +484,6 @@ export default function ARScene() {
                         max-height: none !important;
                     }
 
-                    /* ── Back Button ── */
                     .ar-back-btn {
                         position: absolute;
                         top: 22px;
@@ -392,7 +516,6 @@ export default function ARScene() {
                         opacity: 0.7;
                     }
 
-                    /* ── Status Pill ── */
                     .ar-status-pill {
                         position: absolute;
                         top: 22px;
@@ -435,7 +558,6 @@ export default function ARScene() {
                         50% { opacity: 0.4; }
                     }
 
-                    /* ── Scanning Reticle ── */
                     .ar-reticle-wrap {
                         position: absolute;
                         top: 45%;
@@ -491,7 +613,6 @@ export default function ARScene() {
                         padding: 9px 20px;
                     }
 
-                    /* ── Restore Banner ── */
                     .ar-restore-banner {
                         position: absolute;
                         bottom: 130px;
@@ -518,7 +639,6 @@ export default function ARScene() {
                         to   { opacity: 1; transform: translateX(-50%) translateY(0); }
                     }
 
-                    /* ── Wish Card ── */
                     .ar-wish-card {
                         position: absolute;
                         bottom: 28px;
@@ -578,7 +698,6 @@ export default function ARScene() {
                         font-style: italic;
                     }
 
-                    /* ── Divider line under card top ── */
                     .ar-wish-divider {
                         grid-column: 1 / -1;
                         height: 1px;
@@ -586,9 +705,31 @@ export default function ARScene() {
                         margin: 2px 0 0;
                         display: none;
                     }
+
+                    .dev-footer {
+                        position: absolute;
+                        bottom: 12px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        z-index: 10005;
+                        font-family: 'DM Sans', sans-serif;
+                        font-size: 10px;
+                        font-weight: 600;
+                        color: var(--gold-light);
+                        background: var(--surface);
+                        backdrop-filter: blur(12px);
+                        -webkit-backdrop-filter: blur(12px);
+                        border: 1px solid var(--border);
+                        border-radius: 100px;
+                        padding: 6px 14px;
+                        letter-spacing: 0.8px;
+                        text-transform: uppercase;
+                        white-space: nowrap;
+                        pointer-events: none;
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+                    }
                 `}</style>
 
-                {/* Scanning reticle */}
                 {!isTargetVisible && !hasBeenDetected && (
                     <div className="ar-reticle-wrap">
                         <div className="ar-reticle-frame">
@@ -602,7 +743,6 @@ export default function ARScene() {
                     </div>
                 )}
 
-                {/* Status pill */}
                 {hasBeenDetected && (
                     <div className="ar-status-pill">
                         <div className={`ar-status-led ${isTargetVisible ? "tracked" : "searching"}`}></div>
@@ -610,20 +750,17 @@ export default function ARScene() {
                     </div>
                 )}
 
-                {/* Restore banner */}
                 {hasBeenDetected && !isTargetVisible && (
                     <div className="ar-restore-banner">
                         Point camera at the Vesak QR code to restore the lantern
                     </div>
                 )}
 
-                {/* Back button */}
                 <button className="ar-back-btn" onClick={handleExit}>
                     <span className="ar-back-arrow">←</span>
                     <span>Exit AR</span>
                 </button>
 
-                {/* Wish card */}
                 <div className="ar-wish-card">
                     <div className="ar-wish-icon-wrap">🪔</div>
                     <div>
@@ -633,6 +770,8 @@ export default function ARScene() {
                         <p className="ar-wish-body">{wishText}</p>
                     </div>
                 </div>
+
+                <div className="dev-footer">developed by Amandi and Ihan</div>
             </div>
         );
     }
@@ -676,7 +815,6 @@ export default function ARScene() {
                     z-index: 999;
                 }
 
-                /* ── Background layers ── */
                 .intro-bg-image {
                     position: absolute;
                     inset: 0;
@@ -696,7 +834,6 @@ export default function ARScene() {
                     transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
                 }
 
-                /* ── Sparks ── */
                 .intro-sparks {
                     position: absolute;
                     inset: 0;
@@ -720,7 +857,6 @@ export default function ARScene() {
                     100% { opacity: 0; transform: translateY(-110vh) translateX(40px) scale(0.3); }
                 }
 
-                /* ── Decorative divider ── */
                 .lotus-divider {
                     display: flex;
                     align-items: center;
@@ -740,7 +876,6 @@ export default function ARScene() {
                     opacity: 0.6;
                 }
 
-                /* ── Card ── */
                 .intro-card {
                     position: relative;
                     z-index: 10;
@@ -767,7 +902,6 @@ export default function ARScene() {
                     to   { opacity: 1; transform: translateY(0) scale(1); }
                 }
 
-                /* ── Peeking Mode ── */
                 .intro-root.peeking .intro-card {
                     opacity: 0 !important;
                     transform: translateY(12px) scale(0.97) !important;
@@ -789,7 +923,6 @@ export default function ARScene() {
                     box-shadow: 0 0 20px rgba(201, 168, 76, 0.2);
                 }
 
-                /* ── Background Peeking Button ── */
                 .bg-peek-btn {
                     position: absolute;
                     top: 20px;
@@ -823,97 +956,6 @@ export default function ARScene() {
                     transform: scale(0.96);
                 }
 
-                /* ── Responsive Scaling for Mobile Devices ── */
-                @media (max-width: 480px) {
-                    .bg-peek-btn {
-                        top: 16px;
-                        right: 16px;
-                        padding: 8px 14px;
-                        font-size: 10px;
-                    }
-                    .intro-card {
-                        padding: 24px 20px 22px;
-                        border-radius: 20px;
-                    }
-                    .intro-title {
-                        font-size: 26px !important;
-                    }
-                    .intro-subtitle {
-                        font-size: 11.5px !important;
-                        line-height: 1.55 !important;
-                        margin-bottom: 18px !important;
-                    }
-                    .intro-badge {
-                        font-size: 9px !important;
-                        padding: 4px 10px !important;
-                        margin-bottom: 12px !important;
-                    }
-                    .lotus-divider {
-                        margin-bottom: 16px !important;
-                    }
-                    .intro-field {
-                        margin-bottom: 16px !important;
-                    }
-                    .wish-section {
-                        margin-bottom: 16px !important;
-                    }
-                    .wish-tabs {
-                        gap: 6px !important;
-                        margin-bottom: 10px !important;
-                    }
-                    .wish-tab {
-                        padding: 8px 4px 8px !important;
-                        border-radius: 9px !important;
-                    }
-                    .wish-tab-emoji {
-                        font-size: 16px !important;
-                    }
-                    .wish-tab-label {
-                        font-size: 8px !important;
-                    }
-                    .wish-textarea {
-                        height: 64px !important;
-                        padding: 10px 12px !important;
-                        font-size: 11px !important;
-                        border-radius: 9px !important;
-                    }
-                    .intro-input {
-                        padding: 10px 12px !important;
-                        font-size: 13px !important;
-                        border-radius: 9px !important;
-                    }
-                    .intro-cta {
-                        padding: 13px 20px !important;
-                        font-size: 14px !important;
-                        border-radius: 11px !important;
-                    }
-                }
-
-                @media (max-height: 700px) {
-                    .intro-card {
-                        max-height: 96vh;
-                        padding-top: 20px !important;
-                        padding-bottom: 18px !important;
-                    }
-                    .intro-title {
-                        font-size: 25px !important;
-                        margin-bottom: 6px !important;
-                    }
-                    .lotus-divider {
-                        margin-bottom: 12px !important;
-                    }
-                    .intro-subtitle {
-                        margin-bottom: 12px !important;
-                    }
-                    .intro-field {
-                        margin-bottom: 12px !important;
-                    }
-                    .wish-section {
-                        margin-bottom: 12px !important;
-                    }
-                }
-
-                /* ── Badge ── */
                 .intro-badge {
                     display: inline-flex;
                     align-items: center;
@@ -941,7 +983,6 @@ export default function ARScene() {
                     50% { opacity: 0.3; }
                 }
 
-                /* ── Heading ── */
                 .intro-title {
                     font-family: 'Cormorant Garamond', serif;
                     font-size: 32px;
@@ -955,16 +996,7 @@ export default function ARScene() {
                     font-style: italic;
                     color: var(--gold-light);
                 }
-                .intro-subtitle {
-                    font-size: 13px;
-                    font-weight: 300;
-                    line-height: 1.65;
-                    color: var(--text-2);
-                    font-family: var(--sinhala);
-                    margin-bottom: 24px;
-                }
 
-                /* ── Section label ── */
                 .field-label {
                     display: block;
                     font-size: 10px;
@@ -976,7 +1008,6 @@ export default function ARScene() {
                     opacity: 0.85;
                 }
 
-                /* ── Name input ── */
                 .intro-field {
                     margin-bottom: 22px;
                 }
@@ -999,79 +1030,31 @@ export default function ARScene() {
                     box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
                 }
 
-                /* ── Wish selector ── */
-                .wish-section {
+                .intro-greeting {
                     margin-bottom: 22px;
-                }
-                .wish-tabs {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 8px;
-                    margin-bottom: 12px;
-                }
-                .wish-tab {
-                    background: var(--surface-2);
-                    border: 1px solid rgba(255,255,255,0.06);
-                    border-radius: 11px;
-                    padding: 11px 6px 10px;
-                    cursor: pointer;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 5px;
-                    transition: all 0.2s ease;
-                }
-                .wish-tab-emoji {
-                    font-size: 20px;
-                    line-height: 1;
-                    transition: transform 0.2s;
-                }
-                .wish-tab-label {
-                    font-family: var(--sinhala);
-                    font-size: 9px;
-                    font-weight: 500;
-                    color: var(--text-2);
                     text-align: center;
-                    line-height: 1.4;
-                    transition: color 0.2s;
+                    animation: greetingIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
                 }
-                .wish-tab.active {
-                    background: var(--gold-dim);
-                    border-color: rgba(201,168,76,0.45);
-                }
-                .wish-tab.active .wish-tab-label {
+                .intro-greeting p:first-child {
+                    font-family: var(--sinhala);
+                    font-size: 15px;
+                    font-weight: 500;
                     color: var(--gold-light);
+                    line-height: 1.5;
+                    margin-bottom: 4px;
                 }
-                .wish-tab.active .wish-tab-emoji {
-                    transform: scale(1.12);
-                }
-                .wish-tab:hover:not(.active) {
-                    border-color: rgba(255,255,255,0.12);
-                    background: rgba(255,255,255,0.03);
-                }
-                .wish-textarea {
-                    width: 100%;
-                    height: 76px;
-                    background: var(--surface-2);
-                    border: 1px solid rgba(255,255,255,0.07);
-                    border-radius: 11px;
-                    padding: 12px 14px;
+                .intro-greeting p:last-child {
                     font-family: var(--sinhala);
                     font-size: 12px;
                     font-weight: 300;
-                    color: var(--text-1);
-                    line-height: 1.55;
-                    resize: none;
-                    outline: none;
-                    transition: border-color 0.2s, box-shadow 0.2s;
+                    color: var(--text-2);
+                    line-height: 1.5;
                 }
-                .wish-textarea::placeholder { color: var(--text-3); }
-                .wish-textarea:focus {
-                    border-color: rgba(201,168,76,0.4);
-                    box-shadow: 0 0 0 3px rgba(201,168,76,0.07);
+                @keyframes greetingIn {
+                    from { opacity: 0; transform: translateY(8px); }
+                    to   { opacity: 1; transform: translateY(0); }
                 }
 
-                /* ── CTA Button ── */
                 .intro-cta {
                     width: 100%;
                     position: relative;
@@ -1106,7 +1089,6 @@ export default function ARScene() {
                 .intro-cta:active { transform: translateY(1px); box-shadow: 0 2px 10px rgba(201,168,76,0.28); }
                 .cta-icon { font-size: 17px; }
 
-                /* ── Footer caption ── */
                 .intro-footer {
                     margin-top: 16px;
                     text-align: center;
@@ -1115,13 +1097,95 @@ export default function ARScene() {
                     color: var(--text-3);
                     letter-spacing: 0.3px;
                 }
+
+                @media (max-width: 480px) {
+                    .bg-peek-btn {
+                        top: 16px;
+                        right: 16px;
+                        padding: 8px 14px;
+                        font-size: 10px;
+                    }
+                    .intro-card {
+                        padding: 24px 20px 22px;
+                        border-radius: 20px;
+                    }
+                    .intro-title {
+                        font-size: 26px !important;
+                    }
+                    .intro-badge {
+                        font-size: 9px !important;
+                        padding: 4px 10px !important;
+                        margin-bottom: 12px !important;
+                    }
+                    .lotus-divider {
+                        margin-bottom: 16px !important;
+                    }
+                    .intro-field {
+                        margin-bottom: 16px !important;
+                    }
+                    .intro-greeting p:first-child {
+                        font-size: 13px;
+                    }
+                    .intro-greeting p:last-child {
+                        font-size: 11px;
+                    }
+                    .intro-input {
+                        padding: 10px 12px !important;
+                        font-size: 13px !important;
+                        border-radius: 9px !important;
+                    }
+                    .intro-cta {
+                        padding: 13px 20px !important;
+                        font-size: 14px !important;
+                        border-radius: 11px !important;
+                    }
+                }
+
+                @media (max-height: 700px) {
+                    .intro-card {
+                        max-height: 96vh;
+                        padding-top: 20px !important;
+                        padding-bottom: 18px !important;
+                    }
+                    .intro-title {
+                        font-size: 25px !important;
+                        margin-bottom: 6px !important;
+                    }
+                    .lotus-divider {
+                        margin-bottom: 12px !important;
+                    }
+                    .intro-field {
+                        margin-bottom: 12px !important;
+                    }
+                }
+
+                .dev-footer-welcome {
+                    position: absolute;
+                    bottom: 16px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 100;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 10px;
+                    font-weight: 600;
+                    color: var(--gold-light);
+                    background: var(--surface-1);
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    border: 1px solid var(--border);
+                    border-radius: 100px;
+                    padding: 6px 14px;
+                    letter-spacing: 0.8px;
+                    text-transform: uppercase;
+                    white-space: nowrap;
+                    pointer-events: none;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+                }
             `}</style>
 
-            {/* Layered background */}
             <div className="intro-bg-image" />
             <div className="intro-bg-gradient" />
 
-            {/* Background Peeking Button */}
             <button
                 className="bg-peek-btn"
                 onMouseDown={() => setIsPeeking(true)}
@@ -1143,7 +1207,6 @@ export default function ARScene() {
                 <span>👁️ පසුබිම බලන්න</span>
             </button>
 
-            {/* Sparks */}
             <div className="intro-sparks">
                 {sparks.map((s) => (
                     <div
@@ -1160,10 +1223,7 @@ export default function ARScene() {
                 ))}
             </div>
 
-            {/* Card */}
             <div className="intro-card">
-
-                {/* Badge */}
                 <div style={{ marginBottom: 18 }}>
                     <span className="intro-badge">
                         <span className="intro-badge-dot" />
@@ -1171,12 +1231,10 @@ export default function ARScene() {
                     </span>
                 </div>
 
-                {/* Heading */}
                 <h1 className="intro-title">
                     AR <em>වෙසක්</em> පහන් කූඩුව
                 </h1>
 
-                {/* Lotus divider */}
                 <div className="lotus-divider">
                     <div className="lotus-line" />
                     <div className="lotus-dot" />
@@ -1185,13 +1243,9 @@ export default function ARScene() {
                     <div className="lotus-line" />
                 </div>
 
-                <p className="intro-subtitle">
-                    පූජනීය බුදු රශ්මි මාලාවෙන් ඔබගේ පරිසරය ඒකාලෝක කරන්න. ආදරය කරන අය වෙනුවෙන් උතුම් වෙසක් ආශිර්වාදයක් එක් කරන්න.
-                </p>
-
                 {/* Name field */}
                 <div className="intro-field">
-                    <label className="field-label">මෙම ආශිර්වාදය කා වෙනුවෙන්ද?</label>
+                    <label className="field-label">ඔබගේ නම</label>
                     <input
                         type="text"
                         className="intro-input"
@@ -1201,40 +1255,14 @@ export default function ARScene() {
                     />
                 </div>
 
-                {/* Wish selector */}
-                <div className="wish-section">
-                    <label className="field-label">වෙසක් ආශිර්වාදයක් තෝරන්න</label>
-                    <div className="wish-tabs">
-                        {PRESET_WISHES.map((preset) => {
-                            const emoji = preset.label.split(" ")[0];
-                            const label = preset.label.split(" ").slice(1).join(" ");
-                            return (
-                                <button
-                                    key={preset.id}
-                                    className={`wish-tab ${selectedWishId === preset.id ? "active" : ""}`}
-                                    onClick={() => {
-                                        setSelectedWishId(preset.id);
-                                        setWishText(preset.text);
-                                    }}
-                                >
-                                    <span className="wish-tab-emoji">{emoji}</span>
-                                    <span className="wish-tab-label">{label}</span>
-                                </button>
-                            );
-                        })}
+                {/* Live greeting */}
+                {userName.trim() && (
+                    <div className="intro-greeting">
+                        <p>ඔබට පින්බර වෙසක් මංගල්‍යයක් වේවා, {userName.trim()}!</p>
+                        <p>පින්බර වෙසක් මංගල්‍යයේ උතුම් ආලෝකය ඔබගේ හදවතත් නිවසත් සදාකාලික සාමයෙන්, සමගියෙන් සහ සතුටෙන් පුරවාලත්වා!</p>
                     </div>
-                    <textarea
-                        className="wish-textarea"
-                        value={wishText}
-                        onChange={(e) => {
-                            setSelectedWishId("custom");
-                            setWishText(e.target.value);
-                        }}
-                        placeholder="ඔබේම ආශිර්වාදයක් ලියන්න…"
-                    />
-                </div>
+                )}
 
-                {/* CTA */}
                 <button className="intro-cta" onClick={handleStart}>
                     <span className="cta-icon">✦</span>
                     <span>AR පහන් කූඩුව බලන්න</span>
@@ -1242,6 +1270,8 @@ export default function ARScene() {
 
                 <p className="intro-footer">Point your camera at the Vesak QR code after launching</p>
             </div>
+
+            <div className="dev-footer-welcome">developed by Amandi and Ihan</div>
         </div>
     );
 }
