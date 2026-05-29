@@ -211,8 +211,8 @@ export default function ARScene() {
                 (gltf: any) => {
                     const model = gltf.scene;
 
-                    // Make the model 3x bigger (original was 0.4, 0.4 * 3 = 1.2)
-                    model.scale.set(1.2, 1.2, 1.2);
+                    // Scale down the model (was 1.2, now 0.6)
+                    model.scale.set(0.6, 0.6, 0.6);
 
                     // Auto-align model's base flush with the QR ground plane (Y = 0)
                     const box = new THREE.Box3().setFromObject(model);
