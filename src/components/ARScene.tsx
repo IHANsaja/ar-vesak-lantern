@@ -709,7 +709,7 @@ export default function ARScene() {
                     pointer-events: none !important;
                 }
                 .intro-root.peeking .intro-bg-image {
-                    opacity: 0.95 !important;
+                    opacity: 0.4 !important;
                 }
                 .intro-root.peeking .intro-bg-gradient {
                     opacity: 0 !important;
