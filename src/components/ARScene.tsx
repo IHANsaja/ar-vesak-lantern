@@ -29,6 +29,7 @@ export default function ARScene() {
     const [selectedWishId, setSelectedWishId] = useState("peace");
     const [wishText, setWishText] = useState(PRESET_WISHES[0].text);
     const [sparks, setSparks] = useState<{ id: number; left: string; delay: string; duration: string; size: string }[]>([]);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const [isTargetVisible, setIsTargetVisible] = useState(false);
     const [hasBeenDetected, setHasBeenDetected] = useState(false);
@@ -91,6 +92,14 @@ export default function ARScene() {
         } catch (err) {
             console.warn("Fullscreen request skipped or blocked by browser:", err);
         }
+        
+        // Initialize and preload audio upon user interaction
+        if (!audioRef.current) {
+            audioRef.current = new Audio("/audio/vesakSong.mp3");
+            audioRef.current.loop = true;
+            audioRef.current.load();
+        }
+
         setStarted(true);
     };
 
@@ -111,6 +120,13 @@ export default function ARScene() {
         } catch (err) {
             console.warn("Exit fullscreen failed:", err);
         }
+        
+        // Stop audio when exiting AR
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+
         setStarted(false);
     };
 
@@ -171,11 +187,21 @@ export default function ARScene() {
                 setIsTargetVisible(true);
                 setHasBeenDetected(true);
                 console.log("Target found — model placed and tracked");
+                
+                // Play audio when lantern appears
+                if (audioRef.current) {
+                    audioRef.current.play().catch(e => console.warn("Audio playback failed:", e));
+                }
             };
-
+            
             anchor.onTargetLost = () => {
                 setIsTargetVisible(false);
                 console.log("Target tracking lost");
+                
+                // Pause audio when lantern disappears
+                if (audioRef.current) {
+                    audioRef.current.pause();
+                }
             };
 
             // Load the GLB model
