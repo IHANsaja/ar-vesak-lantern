@@ -1108,7 +1108,7 @@ export default function ARScene() {
 
                 {/* Heading */}
                 <h1 className="intro-title">
-                    AR <em>වෙසක්</em><br />පහන් කූඩුව
+                    AR <em>වෙසක්</em> පහන් කූඩුව
                 </h1>
 
                 {/* Lotus divider */}
