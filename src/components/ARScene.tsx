@@ -234,19 +234,38 @@ export default function ARScene() {
 
             await mindarThree.start();
 
+            // ── Enhanced Autofocus & Resolution ──
             try {
                 const video = mindarThree.video;
                 if (video && video.srcObject) {
                     const stream = video.srcObject as MediaStream;
                     const track = stream.getVideoTracks()[0];
-                    if (track && track.applyConstraints) {
-                        await track.applyConstraints({
-                            advanced: [{ focusMode: "continuous" }]
-                        } as any);
+                    if (track) {
+                        const constraints: any = {};
+
+                        // Check if the device supports continuous autofocus
+                        const capabilities = (track as any).getCapabilities?.();
+                        if (capabilities?.focusMode?.includes("continuous")) {
+                            constraints.focusMode = "continuous";
+                        } else if (capabilities?.focusMode?.includes("single-shot")) {
+                            constraints.focusMode = "single-shot";
+                        }
+
+                        // Request higher resolution to reduce blurriness
+                        if (capabilities?.width?.max) {
+                            constraints.width = { ideal: Math.min(capabilities.width.max, 1920) };
+                        }
+                        if (capabilities?.height?.max) {
+                            constraints.height = { ideal: Math.min(capabilities.height.max, 1080) };
+                        }
+
+                        if (Object.keys(constraints).length > 0) {
+                            await track.applyConstraints(constraints);
+                        }
                     }
                 }
             } catch (err) {
-                console.warn("AR Camera: Autofocus constraints not supported on this device", err);
+                console.warn("AR Camera: Autofocus/resolution constraints not supported on this device", err);
             }
         };
 
