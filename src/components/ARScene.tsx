@@ -32,46 +32,8 @@ export default function ARScene() {
 
     const [isTargetVisible, setIsTargetVisible] = useState(false);
     const [hasBeenDetected, setHasBeenDetected] = useState(false);
-    const [needsGyroPermission, setNeedsGyroPermission] = useState(false);
 
-    const isTargetVisibleRef = useRef(false);
-    const hasBeenDetectedRef = useRef(false);
 
-    const gyroRef = useRef({
-        initialAlpha: null as number | null,
-        initialBeta: null as number | null,
-        initialGamma: null as number | null,
-        currentAlpha: null as number | null,
-        currentBeta: null as number | null,
-        currentGamma: null as number | null
-    });
-
-    // Listen to Device Orientation (Gyroscope)
-    useEffect(() => {
-        const handleOrientation = (e: DeviceOrientationEvent) => {
-            if (e.alpha !== null && e.beta !== null && e.gamma !== null) {
-                gyroRef.current.currentAlpha = e.alpha;
-                gyroRef.current.currentBeta = e.beta;
-                gyroRef.current.currentGamma = e.gamma;
-            }
-        };
-
-        window.addEventListener("deviceorientation", handleOrientation);
-        return () => {
-            window.removeEventListener("deviceorientation", handleOrientation);
-        };
-    }, []);
-
-    // Check if iOS Safari requires permission
-    useEffect(() => {
-        if (
-            typeof window !== "undefined" &&
-            typeof DeviceOrientationEvent !== "undefined" &&
-            (DeviceOrientationEvent as any).requestPermission
-        ) {
-            setNeedsGyroPermission(true);
-        }
-    }, []);
 
     // Generate random spark coordinates on mount
     useEffect(() => {
@@ -115,24 +77,6 @@ export default function ARScene() {
 
     // Handle AR Start + Request Fullscreen to hide URL bar
     const handleStart = async () => {
-        // Request Gyroscope permissions on iOS if needed
-        if (
-            typeof window !== "undefined" &&
-            typeof DeviceOrientationEvent !== "undefined" &&
-            (DeviceOrientationEvent as any).requestPermission
-        ) {
-            try {
-                const permissionState = await (DeviceOrientationEvent as any).requestPermission();
-                if (permissionState === "granted") {
-                    console.log("DeviceOrientation permission granted");
-                } else {
-                    console.warn("DeviceOrientation permission denied");
-                }
-            } catch (error) {
-                console.error("Error requesting DeviceOrientation permission:", error);
-            }
-        }
-
         try {
             const docEl = document.documentElement;
             if (docEl.requestFullscreen) {
@@ -186,8 +130,8 @@ export default function ARScene() {
             mindarThree = new MindARThree({
                 container: containerRef.current,
                 imageTargetSrc: "/targets/vesak.mind",
-                filterMinCF: 0.01,
-                filterBeta: 0.01,
+                filterMinCF: 0.0001,
+                filterBeta: 0.001,
                 missTolerance: 10,
                 warmupTolerance: 5,
             });
@@ -217,162 +161,81 @@ export default function ARScene() {
 
             const anchor = mindarThree.addAnchor(0);
 
-            // FIXED WORLD GROUP AND GYRO PIVOT
-            const gyroPivot = new THREE.Group();
-            scene.add(gyroPivot);
+            // Create an upright container group to map target flat plane (X-Y) to vertical 3D space
+            const modelContainer = new THREE.Group();
+            modelContainer.rotation.x = Math.PI / 2;
+            anchor.group.add(modelContainer);
 
-            const worldGroup = new THREE.Group();
-            gyroPivot.add(worldGroup);
+            // Target detection handlers for UI status indicators
+            anchor.onTargetFound = () => {
+                setIsTargetVisible(true);
+                setHasBeenDetected(true);
+                console.log("Target found — model placed and tracked");
+            };
+
+            anchor.onTargetLost = () => {
+                setIsTargetVisible(false);
+                console.log("Target tracking lost");
+            };
 
             // Load the GLB model
             const loader = new GLTFLoader();
+            loader.load(
+                "/models/VLSSL.glb",
+                (gltf: any) => {
+                    const model = gltf.scene;
 
-            loader.load("/models/VLSSL.glb", (gltf: any) => {
-                const model = gltf.scene;
+                    // Make the model 3x bigger (original was 0.4, 0.4 * 3 = 1.2)
+                    model.scale.set(1.2, 1.2, 1.2);
 
-                // SCALE MODEL
-                model.scale.set(1.2, 1.2, 1.2);
+                    // Auto-align model's base flush with the QR ground plane (Y = 0)
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
 
-                // CENTER MODEL
-                const box = new THREE.Box3().setFromObject(model);
-                const center = new THREE.Vector3();
-                box.getCenter(center);
+                    model.position.x = -center.x;
+                    model.position.z = -center.z;
+                    model.position.y = -box.min.y;
 
-                model.position.x = -center.x;
-                model.position.z = -center.z;
-                model.position.y = -box.min.y;
+                    modelContainer.add(model);
 
-                // ROTATE TARGET PLANE TO WORLD SPACE
-                model.quaternion.setFromEuler(
-                    new THREE.Euler(Math.PI / 2, 0, 0)
-                );
-
-                // Add model to worldGroup initially
-                worldGroup.add(model);
-
-                // FIND SUB LANTERNS
-                const subLanterns: THREE.Object3D[] = [];
-
-                model.traverse((obj: THREE.Object3D) => {
-                    const name = obj.name.toLowerCase();
-
-                    if (name.startsWith("sublantern")) {
-                        subLanterns.push(obj);
-                    }
-                });
-
-                // ---------------------------------------
-                // ANCHOR TARGET DETECTION HANDLERS
-                // ---------------------------------------
-                anchor.onTargetFound = () => {
-                    isTargetVisibleRef.current = true;
-                    setIsTargetVisible(true);
-                    
-                    if (!hasBeenDetectedRef.current) {
-                        hasBeenDetectedRef.current = true;
-                        setHasBeenDetected(true);
-                        worldGroup.visible = true;
-                    }
-                    console.log("Placed and tracked successfully");
-                };
-
-                anchor.onTargetLost = () => {
-                    isTargetVisibleRef.current = false;
-                    setIsTargetVisible(false);
-                    console.log("Target tracking lost, switched to Gyro Explore Mode");
-                };
-
-                // Variables to track smooth lerping targets
-                const targetPos = new THREE.Vector3();
-                const targetQuat = new THREE.Quaternion();
-                const targetScale = new THREE.Vector3(1.0, 1.0, 1.0);
-
-                // Keep invisible until first detection
-                worldGroup.visible = false;
-
-                // ---------------------------------------
-                // RENDER LOOP
-                // ---------------------------------------
-                renderer.setAnimationLoop(() => {
-                    // ROTATE MAIN MODEL
-                    model.rotation.y += 0.005;
-
-                    // ROTATE SUB LANTERNS
-                    subLanterns.forEach((lantern: THREE.Object3D, index: number) => {
-                        lantern.rotation.y += index % 2 === 0 ? 0.02 : -0.02;
+                    // Find sub-lanterns inside model
+                    const subLanterns: THREE.Object3D[] = [];
+                    model.traverse((obj: THREE.Object3D) => {
+                        const name = obj.name.toLowerCase();
+                        if (name.startsWith("sublantern")) {
+                            subLanterns.push(obj);
+                        }
                     });
 
-                    // COLOR TRANSITION
-                    lerpT += 0.008;
+                    // Start render loop
+                    renderer.setAnimationLoop(() => {
+                        // Smooth spin whole lantern around vertical axis
+                        model.rotation.y += 0.005;
 
-                    if (lerpT >= 1) {
-                        lerpT = 0;
-                        colorIndex = nextColorIndex;
-                        nextColorIndex =
-                            (nextColorIndex + 1) % festiveColors.length;
-                    }
+                        // Rotate sub lanterns in alternating directions
+                        subLanterns.forEach((lantern: THREE.Object3D, index: number) => {
+                            lantern.rotation.y += index % 2 === 0 ? 0.02 : -0.02;
+                        });
 
-                    pointLight.color.lerpColors(
-                        festiveColors[colorIndex],
-                        festiveColors[nextColorIndex],
-                        lerpT
-                    );
-
-                    // ----------------------------------------------------
-                    // SMOOTH TRANSITIONS & SPATIAL LERPING
-                    // ----------------------------------------------------
-                    if (hasBeenDetectedRef.current) {
-                        if (isTargetVisibleRef.current) {
-                            // QR Tracked Mode: Snap and follow anchor group
-                            anchor.group.updateMatrixWorld(true);
-                            anchor.group.getWorldPosition(targetPos);
-                            anchor.group.getWorldQuaternion(targetQuat);
-                            targetScale.copy(anchor.group.scale);
-
-                            // Reset Gyro pivot when actively tracking
-                            gyroPivot.rotation.set(0, 0, 0);
-                            gyroRef.current.initialAlpha = null;
-                        } else {
-                            // Target Lost Mode: Glide to screen center and activate gyroscope mapping
-                            targetPos.set(0, -0.3, -1.8);
-                            targetQuat.setFromEuler(new THREE.Euler(0, 0, 0));
-                            targetScale.set(1.0, 1.0, 1.0);
-
-                            // Apply device gyro offset
-                            if (gyroRef.current.initialAlpha === null && 
-                                gyroRef.current.currentAlpha !== null &&
-                                gyroRef.current.currentBeta !== null &&
-                                gyroRef.current.currentGamma !== null) {
-                                gyroRef.current.initialAlpha = gyroRef.current.currentAlpha;
-                                gyroRef.current.initialBeta = gyroRef.current.currentBeta;
-                                gyroRef.current.initialGamma = gyroRef.current.currentGamma;
-                            }
-
-                            if (gyroRef.current.initialAlpha !== null && 
-                                gyroRef.current.initialBeta !== null && 
-                                gyroRef.current.initialGamma !== null && 
-                                gyroRef.current.currentAlpha !== null &&
-                                gyroRef.current.currentBeta !== null &&
-                                gyroRef.current.currentGamma !== null) {
-                                const deltaAlpha = gyroRef.current.currentAlpha - gyroRef.current.initialAlpha;
-                                const deltaBeta = gyroRef.current.currentBeta - gyroRef.current.initialBeta;
-                                const deltaGamma = gyroRef.current.currentGamma - gyroRef.current.initialGamma;
-
-                                gyroPivot.rotation.y = -THREE.MathUtils.degToRad(deltaAlpha);
-                                gyroPivot.rotation.x = -THREE.MathUtils.degToRad(deltaBeta);
-                                gyroPivot.rotation.z = THREE.MathUtils.degToRad(deltaGamma);
-                            }
+                        // Beautiful color light pulsing transition
+                        lerpT += 0.008;
+                        if (lerpT >= 1) {
+                            lerpT = 0;
+                            colorIndex = nextColorIndex;
+                            nextColorIndex = (nextColorIndex + 1) % festiveColors.length;
                         }
 
-                        // Apply organic damping (lerp/slerp)
-                        worldGroup.position.lerp(targetPos, 0.08);
-                        worldGroup.quaternion.slerp(targetQuat, 0.08);
-                        worldGroup.scale.lerp(targetScale, 0.08);
-                    }
+                        pointLight.color.lerpColors(
+                            festiveColors[colorIndex],
+                            festiveColors[nextColorIndex],
+                            lerpT
+                        );
 
-                    renderer.render(scene, camera);
-                });
-            });
+                        renderer.render(scene, camera);
+                    });
+                }
+            );
 
             await mindarThree.start();
         };
@@ -382,10 +245,6 @@ export default function ARScene() {
         return () => {
             if (mindarThree) {
                 mindarThree.stop();
-
-                if (mindarThree.renderer) {
-                    mindarThree.renderer.dispose();
-                }
             }
         };
     }, [started]);
@@ -679,7 +538,7 @@ export default function ARScene() {
                     <div className="ar-hud-status">
                         <div className={`ar-status-dot ${isTargetVisible ? "active" : "explore"}`}></div>
                         <span className="ar-status-text">
-                            {isTargetVisible ? "✨ QR TRACKED" : "📌 EXPLORE MODE (GYRO)"}
+                            {isTargetVisible ? "✨ QR TRACKED" : "🔍 SEARCHING..."}
                         </span>
                     </div>
                 )}
@@ -687,7 +546,7 @@ export default function ARScene() {
                 {/* Instruction toast when target is lost */}
                 {hasBeenDetected && !isTargetVisible && (
                     <div className="ar-explore-banner">
-                        <span>💡 Turn your phone or walk around to see the lantern from different angles!</span>
+                        <span>💡 Point your camera back at the Vesak QR code to see the lantern!</span>
                     </div>
                 )}
 
