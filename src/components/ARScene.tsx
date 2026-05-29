@@ -135,10 +135,10 @@ export default function ARScene() {
             mindarThree = new MindARThree({
                 container: containerRef.current,
                 imageTargetSrc: "/targets/vesak.mind",
-                filterMinCF: 0.0001,
-                filterBeta: 0.001,
+                filterMinCF: 0.001,
+                filterBeta: 0.01,
                 missTolerance: 10,
-                warmupTolerance: 5,
+                warmupTolerance: 8,
             });
 
             const { renderer, scene, camera } = mindarThree;
