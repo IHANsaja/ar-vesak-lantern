@@ -139,7 +139,7 @@ export default function ARScene() {
                 container: containerRef.current,
                 imageTargetSrc: "/targets/vesak.mind",
                 filterMinCF: 0.001,
-                filterBeta: 0.01,
+                filterBeta: 0.5,
                 missTolerance: 10,
                 warmupTolerance: 8,
             });
@@ -244,7 +244,7 @@ export default function ARScene() {
                 if (video && video.srcObject) {
                     streamRef = video.srcObject as MediaStream;
                 }
-            } catch (_) {}
+            } catch (_) { }
 
             // ── Enhanced Autofocus & Resolution ──
             try {
@@ -291,7 +291,7 @@ export default function ARScene() {
 
             // Stop MindAR tracking
             if (mindarThree) {
-                try { mindarThree.stop(); } catch (_) {}
+                try { mindarThree.stop(); } catch (_) { }
             }
 
             // Stop all camera media tracks
