@@ -33,6 +33,7 @@ export default function ARScene() {
 
     const [isTargetVisible, setIsTargetVisible] = useState(false);
     const [hasBeenDetected, setHasBeenDetected] = useState(false);
+    const [isPeeking, setIsPeeking] = useState(false);
 
     useEffect(() => {
         const generatedSparks = Array.from({ length: 22 }).map((_, i) => ({
@@ -573,7 +574,7 @@ export default function ARScene() {
 
     // ─── WELCOME SCREEN ─────────────────────────────────────────────────────────
     return (
-        <div className="intro-root">
+        <div className={`intro-root ${isPeeking ? "peeking" : ""}`}>
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+Sinhala:wght@300;400;500;600&display=swap');
 
@@ -615,8 +616,9 @@ export default function ARScene() {
                     position: absolute;
                     inset: 0;
                     background: url('/images/buddha.png') no-repeat center center / cover;
-                    opacity: 0.07;
+                    opacity: 0.4;
                     z-index: 0;
+                    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
                 }
                 .intro-bg-gradient {
                     position: absolute;
@@ -626,6 +628,7 @@ export default function ARScene() {
                         radial-gradient(ellipse 100% 60% at 50% 0%, rgba(30,20,50,0.6) 0%, transparent 80%);
                     z-index: 1;
                     pointer-events: none;
+                    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
                 }
 
                 /* ── Sparks ── */
@@ -635,6 +638,7 @@ export default function ARScene() {
                     z-index: 2;
                     pointer-events: none;
                     overflow: hidden;
+                    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
                 }
                 .spark {
                     position: absolute;
@@ -690,11 +694,158 @@ export default function ARScene() {
                         0 0 80px rgba(201,168,76,0.04) inset;
                     animation: cardIn 0.7s cubic-bezier(0.16,1,0.3,1) both;
                     scrollbar-width: none;
+                    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
                 }
                 .intro-card::-webkit-scrollbar { display: none; }
                 @keyframes cardIn {
                     from { opacity: 0; transform: translateY(24px) scale(0.98); }
                     to   { opacity: 1; transform: translateY(0) scale(1); }
+                }
+
+                /* ── Peeking Mode ── */
+                .intro-root.peeking .intro-card {
+                    opacity: 0 !important;
+                    transform: translateY(12px) scale(0.97) !important;
+                    pointer-events: none !important;
+                }
+                .intro-root.peeking .intro-bg-image {
+                    opacity: 0.95 !important;
+                }
+                .intro-root.peeking .intro-bg-gradient {
+                    opacity: 0 !important;
+                }
+                .intro-root.peeking .intro-sparks {
+                    opacity: 0 !important;
+                }
+                .intro-root.peeking .bg-peek-btn {
+                    background: var(--gold-glow);
+                    border-color: var(--gold);
+                    color: var(--gold-light);
+                    box-shadow: 0 0 20px rgba(201, 168, 76, 0.2);
+                }
+
+                /* ── Background Peeking Button ── */
+                .bg-peek-btn {
+                    position: absolute;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 1000;
+                    display: flex;
+                    align-items: center;
+                    gap: 7px;
+                    padding: 10px 16px;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 11px;
+                    font-weight: 500;
+                    letter-spacing: 0.4px;
+                    color: var(--text-1);
+                    background: var(--surface-1);
+                    backdrop-filter: blur(18px);
+                    -webkit-backdrop-filter: blur(18px);
+                    border: 1px solid var(--border);
+                    border-radius: 100px;
+                    cursor: pointer;
+                    user-select: none;
+                    -webkit-user-select: none;
+                    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+                }
+                .bg-peek-btn:hover {
+                    border-color: var(--border-hover);
+                    background: rgba(255, 255, 255, 0.04);
+                }
+                .bg-peek-btn:active {
+                    transform: scale(0.96);
+                }
+
+                /* ── Responsive Scaling for Mobile Devices ── */
+                @media (max-width: 480px) {
+                    .bg-peek-btn {
+                        top: 16px;
+                        right: 16px;
+                        padding: 8px 14px;
+                        font-size: 10px;
+                    }
+                    .intro-card {
+                        padding: 24px 20px 22px;
+                        border-radius: 20px;
+                    }
+                    .intro-title {
+                        font-size: 26px !important;
+                    }
+                    .intro-subtitle {
+                        font-size: 11.5px !important;
+                        line-height: 1.55 !important;
+                        margin-bottom: 18px !important;
+                    }
+                    .intro-badge {
+                        font-size: 9px !important;
+                        padding: 4px 10px !important;
+                        margin-bottom: 12px !important;
+                    }
+                    .lotus-divider {
+                        margin-bottom: 16px !important;
+                    }
+                    .intro-field {
+                        margin-bottom: 16px !important;
+                    }
+                    .wish-section {
+                        margin-bottom: 16px !important;
+                    }
+                    .wish-tabs {
+                        gap: 6px !important;
+                        margin-bottom: 10px !important;
+                    }
+                    .wish-tab {
+                        padding: 8px 4px 8px !important;
+                        border-radius: 9px !important;
+                    }
+                    .wish-tab-emoji {
+                        font-size: 16px !important;
+                    }
+                    .wish-tab-label {
+                        font-size: 8px !important;
+                    }
+                    .wish-textarea {
+                        height: 64px !important;
+                        padding: 10px 12px !important;
+                        font-size: 11px !important;
+                        border-radius: 9px !important;
+                    }
+                    .intro-input {
+                        padding: 10px 12px !important;
+                        font-size: 13px !important;
+                        border-radius: 9px !important;
+                    }
+                    .intro-cta {
+                        padding: 13px 20px !important;
+                        font-size: 14px !important;
+                        border-radius: 11px !important;
+                    }
+                }
+
+                @media (max-height: 700px) {
+                    .intro-card {
+                        max-height: 96vh;
+                        padding-top: 20px !important;
+                        padding-bottom: 18px !important;
+                    }
+                    .intro-title {
+                        font-size: 25px !important;
+                        margin-bottom: 6px !important;
+                    }
+                    .lotus-divider {
+                        margin-bottom: 12px !important;
+                    }
+                    .intro-subtitle {
+                        margin-bottom: 12px !important;
+                    }
+                    .intro-field {
+                        margin-bottom: 12px !important;
+                    }
+                    .wish-section {
+                        margin-bottom: 12px !important;
+                    }
                 }
 
                 /* ── Badge ── */
@@ -905,6 +1056,28 @@ export default function ARScene() {
             <div className="intro-bg-image" />
             <div className="intro-bg-gradient" />
 
+            {/* Background Peeking Button */}
+            <button
+                className="bg-peek-btn"
+                onMouseDown={() => setIsPeeking(true)}
+                onMouseUp={() => setIsPeeking(false)}
+                onMouseLeave={() => setIsPeeking(false)}
+                onTouchStart={(e) => {
+                    e.preventDefault();
+                    setIsPeeking(true);
+                }}
+                onTouchEnd={(e) => {
+                    e.preventDefault();
+                    setIsPeeking(false);
+                }}
+                onTouchCancel={(e) => {
+                    e.preventDefault();
+                    setIsPeeking(false);
+                }}
+            >
+                <span>👁️ පසුබිම බලන්න</span>
+            </button>
+
             {/* Sparks */}
             <div className="intro-sparks">
                 {sparks.map((s) => (
@@ -929,7 +1102,7 @@ export default function ARScene() {
                 <div style={{ marginBottom: 18 }}>
                     <span className="intro-badge">
                         <span className="intro-badge-dot" />
-                        Augmented Reality · Vesak 2025
+                        Augmented Reality · Vesak 2026
                     </span>
                 </div>
 
